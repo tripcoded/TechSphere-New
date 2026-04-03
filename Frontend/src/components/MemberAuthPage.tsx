@@ -83,7 +83,7 @@ export function MemberAuthPage(props: MemberAuthPageProps) {
               Back
             </button>
           </div>
-          <p className="form-note">Preview credentials remain available for local testing.</p>
+
         </form>
       ) : (
         <form className="form" onSubmit={onRegister}>

@@ -1,27 +1,31 @@
-import { FormEvent } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
-import { EventItem, MemberProfile, TeamItem } from "../types";
+import { EventItem, MemberProfile, TeamItem, TeamJoinRequestItem, TeamMember } from "../types";
 
 interface MemberDashboardProps {
   email: string;
-  isDemo: boolean;
   busy: boolean;
   tab: "dashboard" | "register-event" | "registered-events" | "profile";
   events: EventItem[];
   teams: TeamItem[];
+  leaderRequests: TeamJoinRequestItem[];
   teamEventId: string;
   teamName: string;
   inviteTokenInput: string;
   inviteLinks: Record<number, string>;
   profile: MemberProfile;
-  setTab: (value: "dashboard" | "register-event" | "registered-events" | "profile") => void;
+  canUseNativeShare: boolean;
   setTeamEventId: (value: string) => void;
   setTeamName: (value: string) => void;
   setInviteTokenInput: (value: string) => void;
   setProfile: (profile: MemberProfile) => void;
   onRegisterTeam: (event: FormEvent) => void;
-  onGenerateInvite: (teamId: number) => void;
+  onCopyInviteLink: (teamId: number) => void;
+  onShareInviteWhatsApp: (teamId: number) => void;
+  onNativeShareInvite: (teamId: number) => void;
   onJoinInvite: () => void;
+  onApproveJoinRequest: (requestId: number) => void;
+  onRejectJoinRequest: (requestId: number) => void;
   onSaveProfile: (event: FormEvent) => void;
 }
 
@@ -33,62 +37,67 @@ function eventRange(event: EventItem): string {
   return `${new Date(event.starts_at).toLocaleString()} - ${new Date(event.ends_at).toLocaleString()}`;
 }
 
+function teamLeader(team: TeamItem): TeamMember | null {
+  return team.leader ?? team.members.find((member) => member.id === team.leader_id) ?? null;
+}
+
 export function MemberDashboard(props: MemberDashboardProps) {
   const {
     email,
-    isDemo,
     busy,
     tab,
     events,
     teams,
+    leaderRequests,
     teamEventId,
     teamName,
     inviteTokenInput,
     inviteLinks,
     profile,
-    setTab,
+    canUseNativeShare,
     setTeamEventId,
     setTeamName,
     setInviteTokenInput,
     setProfile,
     onRegisterTeam,
-    onGenerateInvite,
+    onCopyInviteLink,
+    onShareInviteWhatsApp,
+    onNativeShareInvite,
     onJoinInvite,
+    onApproveJoinRequest,
+    onRejectJoinRequest,
     onSaveProfile,
   } = props;
 
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (tab !== "registered-events") {
+      setSelectedTeamId(null);
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    if (selectedTeamId === null) return;
+    const stillExists = teams.some((team) => team.id === selectedTeamId);
+    if (!stillExists) {
+      setSelectedTeamId(null);
+    }
+  }, [teams, selectedTeamId]);
+
+  const activeTeam = teams.find((team) => team.id === selectedTeamId) ?? null;
+  const normalizedEmail = email.trim().toLowerCase();
+  const activeLeader = activeTeam ? teamLeader(activeTeam) : null;
+  const isActiveLeader = Boolean(activeLeader && activeLeader.email.toLowerCase() === normalizedEmail);
+  const activeTeamRequests = activeTeam ? leaderRequests.filter((request) => request.team_id === activeTeam.id) : [];
+
   return (
     <section className="dashboard">
-      <aside className="card sidebar">
-        <h3>Member Panel</h3>
-        <p className="muted">{email}</p>
-        <button type="button" className={tab === "dashboard" ? "menu active" : "menu"} onClick={() => setTab("dashboard")}>
-          Dashboard
-        </button>
-        <button
-          type="button"
-          className={tab === "register-event" ? "menu active" : "menu"}
-          onClick={() => setTab("register-event")}
-        >
-          Event Registration
-        </button>
-        <button
-          type="button"
-          className={tab === "registered-events" ? "menu active" : "menu"}
-          onClick={() => setTab("registered-events")}
-        >
-          Registered Events
-        </button>
-        <button type="button" className={tab === "profile" ? "menu active" : "menu"} onClick={() => setTab("profile")}>
-          Profile
-        </button>
-        {isDemo && <span className="badge">Demo Mode</span>}
-      </aside>
-
       <div className="content">
         {tab === "dashboard" && (
           <article className="card">
             <h2>Member Dashboard</h2>
+            <p className="muted workspace-identity">{email}</p>
             <div className="stats">
               <div>
                 <span>Total Events</span>
@@ -102,12 +111,12 @@ export function MemberDashboard(props: MemberDashboardProps) {
 
             <div className="invite-join-box">
               <label>
-                Join Team by Invite Token
+                Join Team by Invite Link or Token
                 <input
                   value={inviteTokenInput}
                   onChange={(event) => setInviteTokenInput(event.target.value)}
                   type="text"
-                  placeholder="Paste invite token here"
+                  placeholder="Paste invite link or token here"
                 />
               </label>
               <button className="btn-outline" type="button" onClick={onJoinInvite}>
@@ -132,7 +141,7 @@ export function MemberDashboard(props: MemberDashboardProps) {
         {tab === "register-event" && (
           <article className="card">
             <h2>Register Event</h2>
-            <p className="muted">Create a team first, then share the invite token with teammates.</p>
+            <p className="muted">Registering a team makes you the team leader and unlocks invite sharing plus join-request approvals.</p>
             <form className="form" onSubmit={onRegisterTeam}>
               <label>
                 Event
@@ -158,22 +167,168 @@ export function MemberDashboard(props: MemberDashboardProps) {
 
         {tab === "registered-events" && (
           <article className="card">
-            <h2>Registered Teams</h2>
-            <ul className="list">
-              {teams.length === 0 && <li className="empty">No teams registered yet.</li>}
-              {teams.map((team) => (
-                <li key={team.id} className="team-row">
-                  <div>
-                    <strong>{team.name}</strong>
-                    <p>{eventTitleFromId(team.event_id, events)}</p>
-                    {inviteLinks[team.id] && <small className="invite-link">{inviteLinks[team.id]}</small>}
-                  </div>
-                  <button className="btn-outline" type="button" onClick={() => onGenerateInvite(team.id)}>
-                    Generate Invite Link
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="registered-team-head">
+              <div>
+                <h2>Registered Teams</h2>
+                <p className="muted">Open any team to view the leader, all registered members, and leader-only invite controls.</p>
+              </div>
+              <span className="team-count-badge">{teams.length} teams</span>
+            </div>
+
+            {teams.length === 0 && <p className="empty">No teams registered yet.</p>}
+
+            {teams.length > 0 && (
+              <div className="team-browser">
+                <section className="team-list-panel">
+                  <ul className="team-list">
+                    {teams.map((team) => {
+                      const leader = teamLeader(team);
+                      const isSelected = activeTeam?.id === team.id;
+                      const isLeader = leader?.email.toLowerCase() === normalizedEmail;
+                      return (
+                        <li key={team.id}>
+                          <button
+                            type="button"
+                            className={isSelected ? "team-list-item active" : "team-list-item"}
+                            onClick={() => setSelectedTeamId(isSelected ? null : team.id)}
+                          >
+                            <div className="team-list-copy">
+                              <div className="team-list-title-row">
+                                <strong>{team.name}</strong>
+                                {isLeader && <span className="role-pill">Leader</span>}
+                              </div>
+                              <small>{eventTitleFromId(team.event_id, events)}</small>
+                            </div>
+                            <span className="team-list-count">{team.members.length}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+
+                {activeTeam && (
+                  <article className="team-detail-card">
+                    <div className="team-detail-head">
+                      <div>
+                        <p className="team-detail-kicker">Team Details</p>
+                        <h3>{activeTeam.name}</h3>
+                        <p className="muted">{eventTitleFromId(activeTeam.event_id, events)}</p>
+                      </div>
+                      <div className="team-detail-actions">
+                        <div className="team-detail-stats">
+                          <div>
+                            <span>Members</span>
+                            <strong>{activeTeam.members.length}</strong>
+                          </div>
+                          <div>
+                            <span>Your Role</span>
+                            <strong>{isActiveLeader ? "Leader" : "Member"}</strong>
+                          </div>
+                        </div>
+                        <button className="btn-outline" type="button" onClick={() => setSelectedTeamId(null)}>
+                          Close
+                        </button>
+                      </div>
+                    </div>
+
+                    <section className="team-role-panel">
+                      <div className="team-role-card leader">
+                        <span className="team-role-label">Team Leader</span>
+                        <strong>{activeLeader?.full_name || activeLeader?.email || "Not assigned"}</strong>
+                        <small>{activeLeader?.email || "No email available"}</small>
+                      </div>
+                      <div className="team-role-card">
+                        <span className="team-role-label">Members</span>
+                        <strong>{Math.max(activeTeam.members.length - 1, 0)}</strong>
+                        <small>Registered teammates besides the leader</small>
+                      </div>
+                    </section>
+
+                    <div className="team-member-list">
+                      {activeTeam.members.map((member) => {
+                        const memberIsLeader = member.id === activeTeam.leader_id;
+                        return (
+                          <article key={member.id} className="team-member-row">
+                            <div className="team-member-copy">
+                              <div className="team-member-title-row">
+                                <p>{member.full_name || member.email}</p>
+                                {memberIsLeader && <span className="role-pill">Leader</span>}
+                                {!memberIsLeader && <span className="member-pill">Member</span>}
+                              </div>
+                              <small>{member.email}</small>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+
+                    {isActiveLeader ? (
+                      <>
+                        <section className="team-share-panel">
+                          <div>
+                            <h4>Share Invite</h4>
+                            <p className="muted">Only the team leader can share invite links and review incoming join requests.</p>
+                          </div>
+                          <div className="team-share-actions">
+                            <button className="btn-outline" disabled={busy} type="button" onClick={() => onCopyInviteLink(activeTeam.id)}>
+                              Copy Invite Link
+                            </button>
+                            <button className="btn-outline" disabled={busy} type="button" onClick={() => onShareInviteWhatsApp(activeTeam.id)}>
+                              Share On WhatsApp
+                            </button>
+                            {canUseNativeShare && (
+                              <button className="btn-outline" disabled={busy} type="button" onClick={() => onNativeShareInvite(activeTeam.id)}>
+                                More Share Options
+                              </button>
+                            )}
+                          </div>
+                          {inviteLinks[activeTeam.id] && <small className="invite-link">{inviteLinks[activeTeam.id]}</small>}
+                        </section>
+
+                        <section className="join-request-panel">
+                          <div className="join-request-head">
+                            <div>
+                              <h4>Pending Join Requests</h4>
+                              <p className="muted">Approve or reject who gets added to this team.</p>
+                            </div>
+                            <span className="team-count-badge">{activeTeamRequests.length} pending</span>
+                          </div>
+
+                          {activeTeamRequests.length === 0 && <p className="empty">No pending requests for this team right now.</p>}
+
+                          {activeTeamRequests.length > 0 && (
+                            <div className="join-request-list">
+                              {activeTeamRequests.map((request) => (
+                                <article key={request.id} className="join-request-item">
+                                  <div className="join-request-copy">
+                                    <strong>{request.requester.full_name || request.requester.email}</strong>
+                                    <small>{request.requester.email}</small>
+                                  </div>
+                                  <div className="join-request-actions">
+                                    <button className="btn-primary" disabled={busy} type="button" onClick={() => onApproveJoinRequest(request.id)}>
+                                      Approve
+                                    </button>
+                                    <button className="btn-outline" disabled={busy} type="button" onClick={() => onRejectJoinRequest(request.id)}>
+                                      Reject
+                                    </button>
+                                  </div>
+                                </article>
+                              ))}
+                            </div>
+                          )}
+                        </section>
+                      </>
+                    ) : (
+                      <section className="team-share-panel passive">
+                        <h4>Invite Controls</h4>
+                        <p className="muted">Invite sharing and join approvals are available only to the team leader who registered this team.</p>
+                      </section>
+                    )}
+                  </article>
+                )}
+              </div>
+            )}
           </article>
         )}
 
@@ -238,4 +393,3 @@ export function MemberDashboard(props: MemberDashboardProps) {
     </section>
   );
 }
-

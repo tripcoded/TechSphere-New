@@ -1,8 +1,13 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+
+BACKEND_ROOT = Path(__file__).resolve().parent.parent
+ENV_FILE = BACKEND_ROOT / ".env"
+
+load_dotenv(dotenv_path=ENV_FILE)
 
 
 def _get_bool(name: str, default: bool) -> bool:

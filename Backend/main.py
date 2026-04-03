@@ -1,36 +1,12 @@
-from sqlalchemy import create_engine
-# from sqlalchemy.pool import NullPool
-from dotenv import load_dotenv
-import os
-from urllib.parse import quote_plus
+"""ASGI entrypoint for local backend development.
 
-# Load environment variables from .env
-load_dotenv(override=True)
+This lets `uvicorn main:app --reload` work when run from the Backend folder.
+"""
 
-# Fetch variables
-USER = os.getenv("user")
-PASSWORD = os.getenv("password")
-HOST = os.getenv("host")
-PORT = os.getenv("port")
-DBNAME = os.getenv("dbname")
+from app.main import app
 
-if PASSWORD is None:
-    PASSWORD = ""
-else:
-    PASSWORD = quote_plus(PASSWORD)
 
-# Construct the SQLAlchemy connection string
-DATABASE_URL = f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require"
+if __name__ == "__main__":
+    import uvicorn
 
-# Create the SQLAlchemy engine
-engine = create_engine(DATABASE_URL)
-# If using Transaction Pooler or Session Pooler, we want to ensure we disable SQLAlchemy client side pooling -
-# https://docs.sqlalchemy.org/en/20/core/pooling.html#switching-pool-implementations
-# engine = create_engine(DATABASE_URL, poolclass=NullPool)
-
-# Test the connection
-try:
-    with engine.connect() as connection:
-        print("Connection successful!")
-except Exception as e:
-    print(f"Failed to connect: {e}")
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

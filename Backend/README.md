@@ -21,7 +21,13 @@ Copy `.env.example` to `.env` and update values.
 ## 2. Run
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn main:app --reload
+```
+
+Alternative from the repo root:
+
+```bash
+uvicorn Backend.app.main:app --reload
 ```
 
 Open docs at:
@@ -47,4 +53,4 @@ Open docs at:
 - OTP data and rate-limit counters are stored in-memory in this phase.
 - Tables auto-create on startup using SQLAlchemy metadata.
 - For production, replace defaults with strong secrets and a PostgreSQL URL.
-
+- To test PostgreSQL connectivity separately, run `python db_connection_check.py`.

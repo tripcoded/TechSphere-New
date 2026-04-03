@@ -1,10 +1,9 @@
-import { FormEvent } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 import { AdminProfile, EventItem, TeamItem } from "../types";
 
 interface AdminDashboardProps {
   tab: "current-events" | "add-events" | "profile";
-  isDemo: boolean;
   busy: boolean;
   events: EventItem[];
   teams: TeamItem[];
@@ -18,7 +17,6 @@ interface AdminDashboardProps {
   eventStart: string;
   eventEnd: string;
   profile: AdminProfile;
-  setTab: (value: "current-events" | "add-events" | "profile") => void;
   setSelectedEventId: (value: number) => void;
   setEventSearch: (value: string) => void;
   setTeamSearch: (value: string) => void;
@@ -38,10 +36,35 @@ function eventRange(event: EventItem): string {
   return `${new Date(event.starts_at).toLocaleString()} - ${new Date(event.ends_at).toLocaleString()}`;
 }
 
+function teamLeader(team: TeamItem) {
+  return team.members.find((member) => member.id === team.leader_id) ?? team.members[0] ?? null;
+}
+
+function teamMatchesSearch(team: TeamItem, search: string) {
+  const terms = search
+    .toLowerCase()
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter(Boolean);
+
+  if (terms.length === 0) return true;
+
+  const searchableText = [
+    team.name,
+    teamLeader(team)?.full_name ?? "",
+    teamLeader(team)?.email ?? "",
+    ...team.members.flatMap((member) => [member.full_name ?? "", member.email]),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return terms.every((term) => searchableText.includes(term));
+}
+
 export function AdminDashboard(props: AdminDashboardProps) {
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const {
     tab,
-    isDemo,
     busy,
     events,
     teams,
@@ -55,7 +78,6 @@ export function AdminDashboard(props: AdminDashboardProps) {
     eventStart,
     eventEnd,
     profile,
-    setTab,
     setSelectedEventId,
     setEventSearch,
     setTeamSearch,
@@ -75,28 +97,23 @@ export function AdminDashboard(props: AdminDashboardProps) {
     event.title.toLowerCase().includes(eventSearch.trim().toLowerCase())
   );
   const activeEvent = events.find((event) => event.id === selectedEventId) ?? null;
-  const searchedTeams = teams.filter((team) => team.name.toLowerCase().includes(teamSearch.trim().toLowerCase()));
+  const searchedTeams = teams.filter((team) => teamMatchesSearch(team, teamSearch));
+  const activeTeam = searchedTeams.find((team) => team.id === selectedTeamId) ?? null;
+
+  useEffect(() => {
+    setSelectedTeamId(null);
+  }, [selectedEventId]);
+
+  useEffect(() => {
+    if (selectedTeamId === null) return;
+    const selectedTeamStillVisible = searchedTeams.some((team) => team.id === selectedTeamId);
+    if (!selectedTeamStillVisible) {
+      setSelectedTeamId(null);
+    }
+  }, [searchedTeams, selectedTeamId]);
 
   return (
     <section className="dashboard">
-      <aside className="card sidebar">
-        <h3>Admin Panel</h3>
-        <button
-          type="button"
-          className={tab === "current-events" ? "menu active" : "menu"}
-          onClick={() => setTab("current-events")}
-        >
-          Current Events
-        </button>
-        <button type="button" className={tab === "add-events" ? "menu active" : "menu"} onClick={() => setTab("add-events")}>
-          Add Events
-        </button>
-        <button type="button" className={tab === "profile" ? "menu active" : "menu"} onClick={() => setTab("profile")}>
-          Profile
-        </button>
-        {isDemo && <span className="badge">Demo Mode</span>}
-      </aside>
-
       <div className="content">
         {tab === "current-events" && (
           <article className="card">
@@ -145,24 +162,84 @@ export function AdminDashboard(props: AdminDashboardProps) {
                     placeholder="Type team name"
                   />
                 </label>
-                <div className="team-grid">
-                  {searchedTeams.length === 0 && <p className="empty">No teams found for this event.</p>}
-                  {searchedTeams.map((team) => (
-                    <article key={team.id} className="team-card">
-                      <div className="team-head">
-                        <strong>{team.name}</strong>
-                        <span>{team.members.length} members</span>
-                      </div>
-                      <ul>
-                        {team.members.map((member) => {
-                          const present = attendanceMap[member.id] === "present";
+                <div className="team-overview">
+                  <div className="team-overview-head">
+                    <div>
+                      <h4>Registered Teams</h4>
+                      <p className="muted">Search by team, leader, or member keyword, then open a team to inspect details.</p>
+                    </div>
+                    <span className="team-count-badge">{searchedTeams.length} teams</span>
+                  </div>
+                </div>
+                <div className="team-browser">
+                  <section className="team-list-panel">
+                    {searchedTeams.length === 0 && <p className="empty">No teams found for this event.</p>}
+                    {searchedTeams.length > 0 && (
+                      <ul className="team-list">
+                        {searchedTeams.map((team) => {
+                          const leader = teamLeader(team);
+                          const isActive = activeTeam?.id === team.id;
                           return (
-                            <li key={member.id}>
-                              <div>
-                                <p>{member.full_name || member.email}</p>
+                            <li key={team.id}>
+                              <button
+                                type="button"
+                                className={isActive ? "team-list-item active" : "team-list-item"}
+                                onClick={() => setSelectedTeamId(isActive ? null : team.id)}
+                              >
+                                <div className="team-list-copy">
+                                  <strong>{team.name}</strong>
+                                  <small>Leader: {leader?.full_name || leader?.email || "Not assigned"}</small>
+                                </div>
+                                <span className="team-list-count">{team.members.length}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </section>
+
+                  {activeTeam && (
+                    <article className="team-detail-card">
+                      <div className="team-detail-head">
+                        <div>
+                          <p className="team-detail-kicker">Team Details</p>
+                          <h3>{activeTeam.name}</h3>
+                          <p className="muted">
+                            Led by {teamLeader(activeTeam)?.full_name || teamLeader(activeTeam)?.email || "Not assigned"}
+                          </p>
+                        </div>
+                        <div className="team-detail-actions">
+                          <div className="team-detail-stats">
+                            <div>
+                              <span>Members</span>
+                              <strong>{activeTeam.members.length}</strong>
+                            </div>
+                            <div>
+                              <span>Leader</span>
+                              <strong>1</strong>
+                            </div>
+                          </div>
+                          <button className="btn-outline" type="button" onClick={() => setSelectedTeamId(null)}>
+                            Close
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="team-member-list">
+                        {activeTeam.members.map((member) => {
+                          const present = attendanceMap[member.id] === "present";
+                          const isLeader = member.id === activeTeam.leader_id;
+                          return (
+                            <article key={member.id} className="team-member-row">
+                              <div className="team-member-copy">
+                                <div className="team-member-title-row">
+                                  <p>{member.full_name || member.email}</p>
+                                  {isLeader && <span className="role-pill">Leader</span>}
+                                </div>
                                 <small>{member.email}</small>
                               </div>
-                              <label className="tick">
+                              <label className={present ? "attendance-switch is-present" : "attendance-switch"}>
                                 <input
                                   type="checkbox"
                                   checked={present}
@@ -170,12 +247,12 @@ export function AdminDashboard(props: AdminDashboardProps) {
                                 />
                                 <span>{present ? "Present" : "Absent"}</span>
                               </label>
-                            </li>
+                            </article>
                           );
                         })}
-                      </ul>
+                      </div>
                     </article>
-                  ))}
+                  )}
                 </div>
               </>
             )}
@@ -266,4 +343,3 @@ export function AdminDashboard(props: AdminDashboardProps) {
     </section>
   );
 }
-

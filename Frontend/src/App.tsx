@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import {
+  approveLeaderJoinRequest,
   createEvent,
   createTeam,
   createTeamInvite,
@@ -8,12 +9,15 @@ import {
   getAdminProfile,
   getAttendanceByEvent,
   getEvents,
+  getInvitePreview,
+  getLeaderJoinRequests,
   getMyProfile,
   getMyTeams,
   getTeamsByEvent,
   joinTeamByInvite,
   login,
   markAttendance,
+  rejectLeaderJoinRequest,
   register,
   sendOtp,
   updateAdminProfile,
@@ -23,6 +27,7 @@ import {
 import { AdminAuthPage } from "./components/AdminAuthPage";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { HomePage } from "./components/HomePage";
+import { InvitePreviewPage } from "./components/InvitePreviewPage";
 import { MemberAuthPage } from "./components/MemberAuthPage";
 import { MemberDashboard } from "./components/MemberDashboard";
 import { SiteFooter } from "./components/SiteFooter";
@@ -30,16 +35,19 @@ import { SiteNav } from "./components/SiteNav";
 import {
   DUMMY_ADMIN_CREDENTIALS,
   DUMMY_EVENTS,
+  DUMMY_JOIN_REQUESTS,
   DUMMY_MEMBER_CREDENTIALS,
   DUMMY_TEAMS,
   AdminProfile,
   EventItem,
+  InvitePreviewItem,
   MemberProfile,
   SessionMode,
   TeamItem,
+  TeamJoinRequestItem,
 } from "./types";
 
-type Screen = "home" | "member-auth" | "member-dashboard" | "admin-auth" | "admin-dashboard";
+type Screen = "home" | "member-auth" | "member-dashboard" | "admin-auth" | "admin-dashboard" | "invite-preview";
 type MemberTab = "dashboard" | "register-event" | "registered-events" | "profile";
 type AdminTab = "current-events" | "add-events" | "profile";
 
@@ -77,14 +85,77 @@ function pageHeading(screen: Screen): { title: string; tags: string[] } {
       return { title: "Admin Access", tags: ["API Key", "Control"] };
     case "admin-dashboard":
       return { title: "Admin Workspace", tags: ["Events", "Attendance"] };
+    case "invite-preview":
+      return { title: "Team Invite", tags: ["Preview", "Request Join"] };
     default:
       return { title: "Official Event Portal", tags: ["Members", "Admin", "Operations"] };
   }
 }
 
+function normalizeInviteToken(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+
+  const directQueryMatch = trimmed.match(/[?&]invite=([^&]+)/i);
+  if (directQueryMatch?.[1]) {
+    return decodeURIComponent(directQueryMatch[1]).trim();
+  }
+
+  const invitePathMatch = trimmed.match(/\/invite\/([^/?#]+)/i);
+  if (invitePathMatch?.[1]) {
+    return decodeURIComponent(invitePathMatch[1]).trim();
+  }
+
+  try {
+    const url = new URL(trimmed);
+    const inviteFromQuery = url.searchParams.get("invite");
+    if (inviteFromQuery) {
+      return inviteFromQuery.trim();
+    }
+
+    const pathSegments = url.pathname.split("/").filter(Boolean);
+    const inviteIndex = pathSegments.findIndex((segment) => segment.toLowerCase() === "invite");
+    if (inviteIndex !== -1 && pathSegments[inviteIndex + 1]) {
+      return decodeURIComponent(pathSegments[inviteIndex + 1]).trim();
+    }
+  } catch {
+    return trimmed;
+  }
+
+  return trimmed;
+}
+
+function buildDemoInvitePreview(token: string): InvitePreviewItem | null {
+  if (!token.startsWith("DEMO-")) return null;
+  const teamId = Number(token.replace("DEMO-", ""));
+  if (!teamId) return null;
+
+  const team = DUMMY_TEAMS.find((item) => item.id === teamId);
+  if (!team) return null;
+
+  const event = DUMMY_EVENTS.find((item) => item.id === team.event_id);
+  if (!event) return null;
+
+  return {
+    invite_token: token,
+    expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+    event: {
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      location: event.location,
+      starts_at: event.starts_at,
+      ends_at: event.ends_at,
+    },
+    team,
+  };
+}
+
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("home");
-  const [notice, setNotice] = useState("Welcome to TechSphere.");
+  const initialInviteToken = normalizeInviteToken(new URLSearchParams(window.location.search).get("invite") ?? "");
+
+  const [screen, setScreen] = useState<Screen>(initialInviteToken ? "invite-preview" : "home");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
   const [memberSession, setMemberSession] = useState<MemberSession | null>(() => readStored(MEMBER_SESSION_KEY));
@@ -96,9 +167,12 @@ export default function App() {
 
   const [events, setEvents] = useState<EventItem[]>([]);
   const [memberTeams, setMemberTeams] = useState<TeamItem[]>([]);
+  const [leaderRequests, setLeaderRequests] = useState<TeamJoinRequestItem[]>([]);
   const [adminTeams, setAdminTeams] = useState<TeamItem[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, "present" | "absent">>({});
+  const [invitePreview, setInvitePreview] = useState<InvitePreviewItem | null>(null);
+  const [activeInviteToken, setActiveInviteToken] = useState(initialInviteToken);
 
   const [loginEmail, setLoginEmail] = useState(DUMMY_MEMBER_CREDENTIALS.email);
   const [loginPassword, setLoginPassword] = useState(DUMMY_MEMBER_CREDENTIALS.password);
@@ -110,7 +184,7 @@ export default function App() {
 
   const [teamEventId, setTeamEventId] = useState("");
   const [teamName, setTeamName] = useState("");
-  const [inviteTokenInput, setInviteTokenInput] = useState("");
+  const [inviteTokenInput, setInviteTokenInput] = useState(initialInviteToken);
   const [inviteLinks, setInviteLinks] = useState<Record<number, string>>({});
 
   const [eventTitle, setEventTitle] = useState("");
@@ -138,10 +212,9 @@ export default function App() {
     bio: "",
   });
 
-  const isMemberDemo = memberSession?.mode === "demo";
-  const isAdminDemo = adminSession?.mode === "demo";
   const heading = pageHeading(screen);
   const showShellHeader = screen !== "home";
+  const canUseNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   useEffect(() => {
     if (memberSession) localStorage.setItem(MEMBER_SESSION_KEY, JSON.stringify(memberSession));
@@ -154,7 +227,15 @@ export default function App() {
   }, [adminSession]);
 
   useEffect(() => {
-    if (memberSession) {
+    if (activeInviteToken) {
+      setScreen("invite-preview");
+      void loadInvitePreview(activeInviteToken);
+      if (memberSession) {
+        void loadMemberData(memberSession);
+      } else if (adminSession) {
+        void loadAdminBase(adminSession);
+      }
+    } else if (memberSession) {
       setScreen("member-dashboard");
       void loadMemberData(memberSession);
     } else if (adminSession) {
@@ -167,17 +248,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("invite");
-    if (token) {
-      setInviteTokenInput(token);
-      if (!memberSession) {
-        setScreen("member-auth");
-        setNotice("Invite token detected. Login as member to join the team.");
-      }
+    if (!activeInviteToken) {
+      setInvitePreview(null);
+      return;
     }
+    setInviteTokenInput(activeInviteToken);
+    void loadInvitePreview(activeInviteToken);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeInviteToken]);
 
   useEffect(() => {
     if (!adminSession || selectedEventId === null || screen !== "admin-dashboard") return;
@@ -185,12 +263,43 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminSession?.apiKey, adminSession?.mode, selectedEventId, screen]);
 
+  function setInviteRouteToken(token: string | null) {
+    const url = new URL(window.location.href);
+    if (token) {
+      url.searchParams.set("invite", token);
+    } else {
+      url.searchParams.delete("invite");
+    }
+    window.history.replaceState({}, "", url.toString());
+    setActiveInviteToken(token ?? "");
+  }
+
+  async function loadInvitePreview(token: string) {
+    setBusy(true);
+    try {
+      const demoPreview = buildDemoInvitePreview(token);
+      if (demoPreview) {
+        setInvitePreview(demoPreview);
+        return;
+      }
+      const preview = await getInvitePreview(token);
+      setInvitePreview(preview);
+    } catch (error) {
+      setInvitePreview(null);
+      setNotice(`Failed to load invite: ${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function loadMemberData(session: MemberSession) {
     setBusy(true);
     try {
       if (session.mode === "demo") {
+        const demoTeams = DUMMY_TEAMS.filter((team) => team.members.some((m) => m.email === DUMMY_MEMBER_CREDENTIALS.email));
         setEvents(DUMMY_EVENTS);
-        setMemberTeams(DUMMY_TEAMS.filter((team) => team.members.some((m) => m.email === DUMMY_MEMBER_CREDENTIALS.email)));
+        setMemberTeams(demoTeams);
+        setLeaderRequests(DUMMY_JOIN_REQUESTS.filter((request) => demoTeams.some((team) => team.id === request.team_id)));
         setMemberProfile({
           headline: "Demo Builder",
           college: "TechSphere University",
@@ -202,13 +311,15 @@ export default function App() {
         setNotice("Member dashboard loaded in demo mode.");
         return;
       }
-      const [eventItems, teamItems, profile] = await Promise.all([
+      const [eventItems, teamItems, joinRequests, profile] = await Promise.all([
         getEvents(),
         getMyTeams(session.token),
+        getLeaderJoinRequests(session.token),
         getMyProfile(session.token),
       ]);
       setEvents(eventItems);
       setMemberTeams(teamItems);
+      setLeaderRequests(joinRequests);
       setMemberProfile(profile);
       setNotice("Member dashboard loaded.");
     } catch (error) {
@@ -282,7 +393,7 @@ export default function App() {
         const session: MemberSession = { email: DUMMY_MEMBER_CREDENTIALS.email, token: "demo-member", mode: "demo" };
         setMemberSession(session);
         setAdminSession(null);
-        setScreen("member-dashboard");
+        setScreen(activeInviteToken ? "invite-preview" : "member-dashboard");
         await loadMemberData(session);
         return;
       }
@@ -290,7 +401,7 @@ export default function App() {
       const session: MemberSession = { email: loginEmail.trim().toLowerCase(), token: response.access_token, mode: "real" };
       setMemberSession(session);
       setAdminSession(null);
-      setScreen("member-dashboard");
+      setScreen(activeInviteToken ? "invite-preview" : "member-dashboard");
       await loadMemberData(session);
     } catch (error) {
       setNotice(`Member login failed: ${(error as Error).message}`);
@@ -375,13 +486,15 @@ export default function App() {
     setBusy(true);
     try {
       if (memberSession.mode === "demo") {
+        const leader = { id: "demo", email: memberSession.email, full_name: "Demo Member" };
         const team: TeamItem = {
           id: Date.now(),
           name: teamName.trim(),
           event_id: parsedEventId,
           leader_id: "demo",
           created_at: new Date().toISOString(),
-          members: [{ id: "demo", email: memberSession.email, full_name: "Demo Member" }],
+          leader,
+          members: [leader],
         };
         setMemberTeams((previous) => [team, ...previous]);
       } else {
@@ -472,43 +585,92 @@ export default function App() {
     }
   }
 
-  async function onGenerateInvite(teamId: number) {
-    if (!memberSession) return;
+  async function ensureInviteLink(teamId: number): Promise<string> {
+    const existing = inviteLinks[teamId];
+    if (existing) return existing;
+    if (!memberSession) throw new Error("Login as a member first.");
+
+    if (memberSession.mode === "demo") {
+      const demoLink = `${window.location.origin}/?invite=DEMO-${teamId}`;
+      setInviteLinks((prev) => ({ ...prev, [teamId]: demoLink }));
+      return demoLink;
+    }
+
+    const response = await createTeamInvite(teamId, memberSession.token);
+    const link = `${window.location.origin}/?invite=${response.invite_token}`;
+    setInviteLinks((prev) => ({ ...prev, [teamId]: link }));
+    return link;
+  }
+
+  async function onCopyInviteLink(teamId: number) {
     setBusy(true);
     try {
-      if (memberSession.mode === "demo") {
-        const demoLink = `${window.location.origin}/?invite=DEMO-${teamId}`;
-        setInviteLinks((prev) => ({ ...prev, [teamId]: demoLink }));
-        setNotice("Demo invite link generated.");
-        return;
-      }
-      const response = await createTeamInvite(teamId, memberSession.token);
-      const link = `${window.location.origin}/?invite=${response.invite_token}`;
-      setInviteLinks((prev) => ({ ...prev, [teamId]: link }));
+      const link = await ensureInviteLink(teamId);
       try {
         await navigator.clipboard.writeText(link);
-        setNotice("Invite link generated and copied.");
+        setNotice("Invite link copied.");
       } catch {
         setNotice("Invite link generated.");
       }
     } catch (error) {
-      setNotice(`Invite generation failed: ${(error as Error).message}`);
+      setNotice(`Invite link failed: ${(error as Error).message}`);
     } finally {
       setBusy(false);
     }
   }
 
-  async function onJoinInvite() {
+  async function onShareInviteWhatsApp(teamId: number) {
+    setBusy(true);
+    try {
+      const link = await ensureInviteLink(teamId);
+      const team = memberTeams.find((item) => item.id === teamId);
+      const message = `Join my TechSphere team${team ? ` ${team.name}` : ""}: ${link}`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+      setNotice("WhatsApp share opened.");
+    } catch (error) {
+      setNotice(`WhatsApp share failed: ${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onNativeShareInvite(teamId: number) {
+    setBusy(true);
+    try {
+      const link = await ensureInviteLink(teamId);
+      const team = memberTeams.find((item) => item.id === teamId);
+      if (!navigator.share) {
+        await navigator.clipboard.writeText(link);
+        setNotice("Share is not supported here, so the link was copied instead.");
+        return;
+      }
+      await navigator.share({
+        title: team ? `${team.name} Invite` : "TechSphere Team Invite",
+        text: team ? `Join ${team.name} on TechSphere` : "Join our TechSphere team",
+        url: link,
+      });
+      setNotice("Invite shared.");
+    } catch (error) {
+      setNotice(`Invite share failed: ${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onJoinInvite(rawValue?: string) {
     if (!memberSession) return;
-    const token = inviteTokenInput.trim();
+    const token = normalizeInviteToken(rawValue ?? inviteTokenInput);
     if (!token) {
-      setNotice("Paste invite token first.");
+      setNotice("Paste invite link or token first.");
       return;
     }
     setBusy(true);
     try {
+      if (token !== inviteTokenInput.trim()) {
+        setInviteTokenInput(token);
+      }
       if (memberSession.mode === "demo") {
-        setNotice("Demo mode: invite accepted.");
+        setNotice("Demo mode: join request sent to the team leader.");
         setInviteTokenInput("");
         return;
       }
@@ -516,8 +678,59 @@ export default function App() {
       setNotice(response.message);
       setInviteTokenInput("");
       await loadMemberData(memberSession);
+      if (activeInviteToken) {
+        await loadInvitePreview(activeInviteToken);
+      }
     } catch (error) {
       setNotice(`Join invite failed: ${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onApproveJoinRequest(requestId: number) {
+    if (!memberSession) return;
+    setBusy(true);
+    try {
+      if (memberSession.mode === "demo") {
+        const request = leaderRequests.find((item) => item.id === requestId);
+        if (request) {
+          setMemberTeams((previous) =>
+            previous.map((team) =>
+              team.id === request.team_id
+                ? { ...team, members: [...team.members, request.requester] }
+                : team
+            )
+          );
+          setLeaderRequests((previous) => previous.filter((item) => item.id !== requestId));
+        }
+        setNotice("Join request approved.");
+        return;
+      }
+      const response = await approveLeaderJoinRequest(requestId, memberSession.token);
+      setNotice(response.message);
+      await loadMemberData(memberSession);
+    } catch (error) {
+      setNotice(`Approve request failed: ${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onRejectJoinRequest(requestId: number) {
+    if (!memberSession) return;
+    setBusy(true);
+    try {
+      if (memberSession.mode === "demo") {
+        setLeaderRequests((previous) => previous.filter((item) => item.id !== requestId));
+        setNotice("Join request rejected.");
+        return;
+      }
+      const response = await rejectLeaderJoinRequest(requestId, memberSession.token);
+      setNotice(response.message);
+      await loadMemberData(memberSession);
+    } catch (error) {
+      setNotice(`Reject request failed: ${(error as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -610,21 +823,111 @@ export default function App() {
     setAdminSession(null);
     setInviteLinks({});
     setInviteTokenInput("");
+    setLeaderRequests([]);
+    if (activeInviteToken) {
+      setScreen("invite-preview");
+      return;
+    }
     setScreen("home");
     setNotice("Logged out.");
   }
+
+  function goHome() {
+    if (activeInviteToken) {
+      setInviteRouteToken(null);
+    }
+    setScreen("home");
+  }
+
+  const navSubtitle =
+    screen === "member-dashboard"
+      ? "Member Workspace"
+      : screen === "admin-dashboard"
+        ? "Admin Workspace"
+        : screen === "invite-preview"
+          ? "Team Invite"
+          : "IET On Campus";
+
+  const navItems =
+    screen === "member-dashboard"
+      ? [
+          { key: "dashboard", label: "Dashboard", active: memberTab === "dashboard", onClick: () => setMemberTab("dashboard") },
+          {
+            key: "register-event",
+            label: "Event Registration",
+            active: memberTab === "register-event",
+            onClick: () => setMemberTab("register-event"),
+          },
+          {
+            key: "registered-events",
+            label: "Registered Teams",
+            active: memberTab === "registered-events",
+            onClick: () => setMemberTab("registered-events"),
+          },
+          { key: "profile", label: "Profile", active: memberTab === "profile", onClick: () => setMemberTab("profile") },
+        ]
+      : screen === "admin-dashboard"
+        ? [
+            {
+              key: "current-events",
+              label: "Current Events",
+              active: adminTab === "current-events",
+              onClick: () => setAdminTab("current-events"),
+            },
+            { key: "add-events", label: "Add Events", active: adminTab === "add-events", onClick: () => setAdminTab("add-events") },
+            { key: "profile", label: "Profile", active: adminTab === "profile", onClick: () => setAdminTab("profile") },
+          ]
+        : [
+            { key: "home", label: "Home", active: screen === "home", onClick: goHome },
+            {
+              key: "member",
+              label: "Member",
+              active: screen === "member-auth",
+              onClick: () => {
+                if (memberSession) {
+                  if (activeInviteToken) setInviteRouteToken(null);
+                  setScreen("member-dashboard");
+                  return;
+                }
+                setScreen("member-auth");
+              },
+            },
+            {
+              key: "admin",
+              label: "Admin",
+              active: screen === "admin-auth",
+              onClick: () => {
+                if (adminSession) {
+                  if (activeInviteToken) setInviteRouteToken(null);
+                  setScreen("admin-dashboard");
+                  return;
+                }
+                setScreen("admin-auth");
+              },
+            },
+          ];
+
+  const handleBrandClick =
+    screen === "member-dashboard"
+      ? () => setMemberTab("dashboard")
+      : screen === "admin-dashboard"
+        ? () => setAdminTab("current-events")
+        : screen === "invite-preview" && activeInviteToken
+          ? () => setScreen("invite-preview")
+          : goHome;
 
   return (
     <div className="app-shell">
       <div className="ambient" />
       <main className="container">
-        <SiteNav
-          activeScreen={screen}
-          onHome={() => setScreen("home")}
-          onMember={() => setScreen(memberSession ? "member-dashboard" : "member-auth")}
-          onAdmin={() => setScreen(adminSession ? "admin-dashboard" : "admin-auth")}
-          onLogout={memberSession || adminSession ? logout : undefined}
-        />
+        {screen !== "home" && (
+          <SiteNav
+            items={navItems}
+            subtitle={navSubtitle}
+            onBrandClick={handleBrandClick}
+            onLogout={memberSession || adminSession ? logout : undefined}
+          />
+        )}
 
         {showShellHeader && (
           <section className="page-hero">
@@ -642,7 +945,7 @@ export default function App() {
           </section>
         )}
 
-        {showShellHeader && <p className="notice">{notice}</p>}
+        {showShellHeader && notice && <p className="notice">{notice}</p>}
 
         <section className="page-content">
           {screen === "home" && <HomePage onOpenMember={() => setScreen("member-auth")} onOpenAdmin={() => setScreen("admin-auth")} />}
@@ -666,7 +969,7 @@ export default function App() {
               onLogin={onMemberLogin}
               onRegister={onMemberRegister}
               onSendOtp={onSendOtp}
-              onBack={() => setScreen("home")}
+              onBack={() => setScreen(activeInviteToken ? "invite-preview" : "home")}
             />
           )}
           {screen === "admin-auth" && (
@@ -675,33 +978,64 @@ export default function App() {
               busy={busy}
               setApiKey={setAdminKeyInput}
               onSubmit={onAdminLogin}
-              onBack={() => setScreen("home")}
+              onBack={() => setScreen(activeInviteToken ? "invite-preview" : "home")}
+            />
+          )}
+          {screen === "invite-preview" && (
+            <InvitePreviewPage
+              busy={busy}
+              invite={invitePreview}
+              memberEmail={memberSession?.email}
+              onBack={() => {
+                setInviteRouteToken(null);
+                setScreen(memberSession ? "member-dashboard" : "home");
+              }}
+              onLoginToJoin={() => {
+                setScreen("member-auth");
+                setMemberAuthTab("login");
+                setNotice("Login as a member to send your join request.");
+              }}
+              onRequestJoin={() => {
+                void onJoinInvite(activeInviteToken);
+              }}
             />
           )}
           {screen === "member-dashboard" && memberSession && (
             <MemberDashboard
               email={memberSession.email}
-              isDemo={isMemberDemo}
               busy={busy}
               tab={memberTab}
               events={events}
               teams={memberTeams}
+              leaderRequests={leaderRequests}
               teamEventId={teamEventId}
               teamName={teamName}
               inviteTokenInput={inviteTokenInput}
               inviteLinks={inviteLinks}
               profile={memberProfile}
-              setTab={setMemberTab}
+              canUseNativeShare={canUseNativeShare}
               setTeamEventId={setTeamEventId}
               setTeamName={setTeamName}
               setInviteTokenInput={setInviteTokenInput}
               setProfile={setMemberProfile}
               onRegisterTeam={onRegisterTeam}
-              onGenerateInvite={(teamId) => {
-                void onGenerateInvite(teamId);
+              onCopyInviteLink={(teamId) => {
+                void onCopyInviteLink(teamId);
+              }}
+              onShareInviteWhatsApp={(teamId) => {
+                void onShareInviteWhatsApp(teamId);
+              }}
+              onNativeShareInvite={(teamId) => {
+                void onNativeShareInvite(teamId);
               }}
               onJoinInvite={() => {
                 void onJoinInvite();
+              }}
+              onApproveJoinRequest={(requestId) => {
+                void onApproveJoinRequest(requestId);
+              }}
+              onRejectJoinRequest={(requestId) => {
+                void onRejectJoinRequest(requestId);
               }}
               onSaveProfile={onSaveMemberProfile}
             />
@@ -709,7 +1043,6 @@ export default function App() {
           {screen === "admin-dashboard" && adminSession && (
             <AdminDashboard
               tab={adminTab}
-              isDemo={isAdminDemo}
               busy={busy}
               events={events}
               teams={adminTeams}
@@ -723,7 +1056,6 @@ export default function App() {
               eventStart={eventStart}
               eventEnd={eventEnd}
               profile={adminProfile}
-              setTab={setAdminTab}
               setSelectedEventId={setSelectedEventId}
               setEventSearch={setEventSearch}
               setTeamSearch={setTeamSearch}

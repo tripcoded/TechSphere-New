@@ -19,6 +19,12 @@ class AttendanceStatus(str, Enum):
     absent = "absent"
 
 
+class TeamJoinRequestStatus(str, Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -31,6 +37,7 @@ class User(Base):
 
     leader_teams: Mapped[list["Team"]] = relationship("Team", back_populates="leader")
     memberships: Mapped[list["TeamMember"]] = relationship("TeamMember", back_populates="user")
+    join_requests: Mapped[list["TeamJoinRequest"]] = relationship("TeamJoinRequest", back_populates="user")
     attendance_records: Mapped[list["Attendance"]] = relationship("Attendance", back_populates="user")
     profile: Mapped["UserProfile | None"] = relationship(
         "UserProfile", back_populates="user", cascade="all, delete-orphan", uselist=False
@@ -70,6 +77,9 @@ class Team(Base):
     event: Mapped[Event] = relationship("Event", back_populates="teams")
     leader: Mapped[User] = relationship("User", back_populates="leader_teams")
     members: Mapped[list["TeamMember"]] = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+    join_requests: Mapped[list["TeamJoinRequest"]] = relationship(
+        "TeamJoinRequest", back_populates="team", cascade="all, delete-orphan"
+    )
 
 
 class TeamMember(Base):
@@ -83,6 +93,25 @@ class TeamMember(Base):
 
     team: Mapped[Team] = relationship("Team", back_populates="members")
     user: Mapped[User] = relationship("User", back_populates="memberships")
+
+
+class TeamJoinRequest(Base):
+    __tablename__ = "team_join_requests"
+    __table_args__ = (UniqueConstraint("team_id", "user_id", name="uq_join_request_per_team_user"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    status: Mapped[TeamJoinRequestStatus] = mapped_column(
+        SQLEnum(TeamJoinRequestStatus, name="team_join_request_status"),
+        default=TeamJoinRequestStatus.pending,
+        nullable=False,
+    )
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    team: Mapped[Team] = relationship("Team", back_populates="join_requests")
+    user: Mapped[User] = relationship("User", back_populates="join_requests")
 
 
 class Attendance(Base):

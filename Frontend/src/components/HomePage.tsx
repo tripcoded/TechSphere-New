@@ -19,7 +19,7 @@ export function HomePage({ onOpenMember, onOpenAdmin }: HomePageProps) {
           </div>
 
           <div className="home-copy">
-            <p className="section-kicker">IET TechSphere</p>
+           
             <h1 className="home-title">IET TechSphere</h1>
             <p className="home-subtitle">Official Technical Community of DDU Gorakhpur</p>
           </div>

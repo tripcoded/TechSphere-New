@@ -10,9 +10,12 @@ class TeamCreateRequest(BaseModel):
 
 
 class TeamMemberResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     email: EmailStr
     full_name: str | None
+    joined_at: datetime | None = None
 
 
 class TeamResponse(BaseModel):
@@ -23,6 +26,7 @@ class TeamResponse(BaseModel):
     event_id: int
     leader_id: str
     created_at: datetime
+    leader: TeamMemberResponse | None
     members: list[TeamMemberResponse]
 
 
@@ -40,3 +44,36 @@ class JoinTeamByInviteRequest(BaseModel):
 class JoinTeamByInviteResponse(BaseModel):
     message: str
     team: TeamResponse
+
+
+class TeamInviteEventResponse(BaseModel):
+    id: int
+    title: str
+    description: str | None
+    location: str | None
+    starts_at: datetime
+    ends_at: datetime
+
+
+class TeamInvitePreviewResponse(BaseModel):
+    invite_token: str
+    expires_at: datetime
+    event: TeamInviteEventResponse
+    team: TeamResponse
+
+
+class TeamJoinRequestResponse(BaseModel):
+    id: int
+    team_id: int
+    team_name: str
+    event_id: int
+    event_title: str
+    requester: TeamMemberResponse
+    status: str
+    requested_at: datetime
+    reviewed_at: datetime | None
+
+
+class TeamJoinRequestDecisionResponse(BaseModel):
+    message: str
+    request: TeamJoinRequestResponse

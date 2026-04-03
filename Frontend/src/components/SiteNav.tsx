@@ -1,48 +1,68 @@
+import { useState } from "react";
 import { TechSphereLogo } from "./TechSphereLogo";
 
+interface SiteNavItem {
+  key: string;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}
+
 interface SiteNavProps {
-  activeScreen: "home" | "member-auth" | "member-dashboard" | "admin-auth" | "admin-dashboard";
-  onHome: () => void;
-  onMember: () => void;
-  onAdmin: () => void;
+  items: SiteNavItem[];
+  subtitle?: string;
+  onBrandClick: () => void;
   onLogout?: () => void;
 }
 
-export function SiteNav({ activeScreen, onHome, onMember, onAdmin, onLogout }: SiteNavProps) {
-  const isMember = activeScreen === "member-auth" || activeScreen === "member-dashboard";
-  const isAdmin = activeScreen === "admin-auth" || activeScreen === "admin-dashboard";
+export function SiteNav({ items, subtitle = "IET On Campus", onBrandClick, onLogout }: SiteNavProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  function navClick(handler: () => void) {
+    setMobileOpen(false);
+    handler();
+  }
 
   return (
     <nav className="site-nav">
-      <button className="brand-lockup" type="button" onClick={onHome}>
+      <button className="brand-lockup" type="button" onClick={() => navClick(onBrandClick)}>
         <TechSphereLogo compact />
         <span className="brand-copy">
-          <strong>IET TechSphere</strong>
+          <strong>TechSphere</strong>
+          <small>{subtitle}</small>
         </span>
       </button>
 
-      <div className="nav-links">
-        <button className={activeScreen === "home" ? "nav-link active" : "nav-link"} type="button" onClick={onHome}>
-          Home
-        </button>
-        <button className={isMember ? "nav-link active" : "nav-link"} type="button" onClick={onMember}>
-          Member
-        </button>
-        <button className={isAdmin ? "nav-link active" : "nav-link"} type="button" onClick={onAdmin}>
-          Admin
-        </button>
-      </div>
+      <button
+        className="hamburger"
+        type="button"
+        aria-label="Toggle navigation"
+        onClick={() => setMobileOpen(!mobileOpen)}
+      >
+        <span className={mobileOpen ? "hamburger-line open" : "hamburger-line"} />
+      </button>
 
-      <div className="nav-actions">
-        {onLogout ? (
-          <button className="btn-outline" type="button" onClick={onLogout}>
-            Logout
-          </button>
-        ) : (
-          <button className="btn-primary nav-cta" type="button" onClick={onMember}>
-            Member Login
-          </button>
-        )}
+      <div className={mobileOpen ? "nav-collapse open" : "nav-collapse"}>
+        <div className="nav-links">
+          {items.map((item) => (
+            <button
+              key={item.key}
+              className={item.active ? "nav-link active" : "nav-link"}
+              type="button"
+              onClick={() => navClick(item.onClick)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="nav-actions">
+          {onLogout && (
+            <button className="btn-outline" type="button" onClick={() => navClick(onLogout)}>
+              Logout
+            </button>
+          )}
+        </div>
       </div>
     </nav>
   );

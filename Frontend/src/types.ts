@@ -14,6 +14,7 @@ export interface TeamMember {
   id: string;
   email: string;
   full_name: string | null;
+  joined_at?: string | null;
 }
 
 export interface TeamItem {
@@ -22,7 +23,34 @@ export interface TeamItem {
   event_id: number;
   leader_id: string;
   created_at: string;
+  leader: TeamMember | null;
   members: TeamMember[];
+}
+
+export interface TeamJoinRequestItem {
+  id: number;
+  team_id: number;
+  team_name: string;
+  event_id: number;
+  event_title: string;
+  requester: TeamMember;
+  status: "pending" | "approved" | "rejected";
+  requested_at: string;
+  reviewed_at: string | null;
+}
+
+export interface InvitePreviewItem {
+  invite_token: string;
+  expires_at: string;
+  event: {
+    id: number;
+    title: string;
+    description: string | null;
+    location: string | null;
+    starts_at: string;
+    ends_at: string;
+  };
+  team: TeamItem;
 }
 
 export interface AttendanceItem {
@@ -86,6 +114,7 @@ export const DUMMY_TEAMS: TeamItem[] = [
     event_id: 102,
     leader_id: "demo-leader-1",
     created_at: "2026-04-02T08:00:00Z",
+    leader: { id: "demo-leader-1", email: "demo@techsphere.dev", full_name: "Demo Member" },
     members: [
       { id: "demo-leader-1", email: "demo@techsphere.dev", full_name: "Demo Member" },
       { id: "demo-member-2", email: "member2@techsphere.dev", full_name: "Second Member" },
@@ -97,9 +126,28 @@ export const DUMMY_TEAMS: TeamItem[] = [
     event_id: 101,
     leader_id: "demo-leader-3",
     created_at: "2026-04-02T09:00:00Z",
+    leader: { id: "demo-leader-3", email: "captain@techsphere.dev", full_name: "Team Captain" },
     members: [
       { id: "demo-leader-3", email: "captain@techsphere.dev", full_name: "Team Captain" },
       { id: "demo-member-4", email: "member4@techsphere.dev", full_name: "Fourth Member" },
     ],
+  },
+];
+
+export const DUMMY_JOIN_REQUESTS: TeamJoinRequestItem[] = [
+  {
+    id: 9001,
+    team_id: 5001,
+    team_name: "Pixel Pioneers",
+    event_id: 102,
+    event_title: "Design Duel",
+    requester: {
+      id: "demo-request-1",
+      email: "newmember@techsphere.dev",
+      full_name: "New Member",
+    },
+    status: "pending",
+    requested_at: "2026-04-03T11:30:00Z",
+    reviewed_at: null,
   },
 ];

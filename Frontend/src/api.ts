@@ -1,4 +1,4 @@
-import type { AttendanceItem, EventItem, TeamItem } from "./types";
+import type { AttendanceItem, EventItem, InvitePreviewItem, TeamItem, TeamJoinRequestItem } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 
@@ -130,6 +130,35 @@ export async function joinTeamByInvite(inviteToken: string, token: string): Prom
     method: "POST",
     token,
     body: JSON.stringify({ invite_token: inviteToken }),
+  });
+}
+
+export async function getInvitePreview(inviteToken: string): Promise<InvitePreviewItem> {
+  return apiRequest(`/teams/invite/${encodeURIComponent(inviteToken)}`, {
+    method: "GET",
+  });
+}
+
+export async function getLeaderJoinRequests(token: string): Promise<TeamJoinRequestItem[]> {
+  return apiRequest("/teams/leader/requests", {
+    method: "GET",
+    token,
+  });
+}
+
+export async function approveLeaderJoinRequest(requestId: number, token: string): Promise<{ message: string }> {
+  return apiRequest(`/teams/requests/${requestId}/approve`, {
+    method: "POST",
+    token,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function rejectLeaderJoinRequest(requestId: number, token: string): Promise<{ message: string }> {
+  return apiRequest(`/teams/requests/${requestId}/reject`, {
+    method: "POST",
+    token,
+    body: JSON.stringify({}),
   });
 }
 

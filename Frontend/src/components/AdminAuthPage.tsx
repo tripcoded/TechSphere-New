@@ -26,7 +26,7 @@ export function AdminAuthPage({ apiKey, busy, setApiKey, onSubmit, onBack }: Adm
             Back
           </button>
         </div>
-        <p className="form-note">Use your real admin key, or the demo key while testing locally.</p>
+
       </form>
     </section>
   );
