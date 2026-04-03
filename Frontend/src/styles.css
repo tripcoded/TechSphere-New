@@ -103,13 +103,17 @@ select {
   height: 50px;
 }
 
+.ts-logo img,
 .ts-logo svg {
   width: 100%;
   height: 100%;
+  display: block;
+  object-fit: contain;
 }
 
 .brand-copy {
   display: grid;
+  gap: 2px;
 }
 
 .brand-copy strong {
@@ -221,43 +225,107 @@ select {
 
 .hero-panel {
   display: grid;
-  grid-template-columns: 1.2fr 0.9fr;
-  gap: 18px;
-  padding: 24px;
-  border-radius: 24px;
+  grid-template-columns: minmax(0, 1.18fr) minmax(290px, 0.9fr);
+  gap: 22px;
+  padding: 28px;
+  border-radius: 28px;
   background:
-    linear-gradient(130deg, rgba(10, 43, 109, 0.96), rgba(16, 73, 165, 0.92)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0));
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.14), transparent 30%),
+    linear-gradient(135deg, rgba(8, 39, 102, 0.98), rgba(18, 93, 196, 0.92) 58%, rgba(0, 168, 204, 0.8) 100%);
   color: #f3f8ff;
   box-shadow: var(--shadow-lg);
   position: relative;
   overflow: hidden;
 }
 
+.hero-panel::before {
+  content: "";
+  position: absolute;
+  inset: -90px auto auto -70px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 68%);
+}
+
 .hero-panel::after {
   content: "";
   position: absolute;
-  inset: auto -80px -120px auto;
-  width: 320px;
-  height: 320px;
+  inset: auto -90px -140px auto;
+  width: 360px;
+  height: 360px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 178, 74, 0.24), transparent 62%);
+  background: radial-gradient(circle, rgba(255, 178, 74, 0.22), transparent 64%);
 }
 
 .hero-copy {
   position: relative;
   z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hero-logo-shell {
+  width: 104px;
+  height: 104px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  box-shadow: 0 22px 40px rgba(3, 19, 52, 0.18);
+}
+
+.hero-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.hero-brand-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.hero-brand-copy .section-kicker {
+  margin: 0;
+  color: rgba(211, 225, 255, 0.86);
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f7fbff;
+  font-size: 0.84rem;
+  font-weight: 800;
 }
 
 .hero-copy h2 {
-  margin: 0 0 14px;
+  margin: 0;
+  max-width: 12ch;
   font-family: "Space Grotesk", "Manrope", sans-serif;
   font-size: clamp(1.7rem, 3vw, 2.5rem);
   line-height: 1.08;
 }
 
 .hero-copy p {
-  margin: 0 0 18px;
+  margin: 0;
   max-width: 52ch;
   color: rgba(238, 245, 255, 0.86);
   font-size: 0.98rem;
@@ -275,6 +343,7 @@ select {
   z-index: 1;
   display: grid;
   gap: 12px;
+  align-content: stretch;
 }
 
 .showcase-grid {
@@ -284,19 +353,24 @@ select {
 }
 
 .showcase-card {
-  padding: 16px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.12);
+  padding: 18px;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08)),
+    rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .showcase-card.highlight {
-  min-height: 150px;
+  min-height: 168px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.15), rgba(255, 178, 74, 0.14));
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.17), rgba(255, 178, 74, 0.18)),
+    rgba(255, 255, 255, 0.08);
 }
 
 .showcase-card span {
@@ -310,12 +384,13 @@ select {
 
 .showcase-card strong {
   display: block;
-  margin-top: 6px;
-  font-size: 1.05rem;
+  margin-top: 8px;
+  font-size: 1.08rem;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
 }
 
 .showcase-card p {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   color: rgba(237, 244, 255, 0.85);
   line-height: 1.55;
 }
@@ -739,6 +814,11 @@ textarea {
   gap: 12px;
 }
 
+.footer-brand > div {
+  display: grid;
+  gap: 4px;
+}
+
 .footer-brand strong {
   display: block;
   color: var(--text);
@@ -770,6 +850,149 @@ textarea {
   color: var(--muted);
 }
 
+.home-landing {
+  min-height: calc(100vh - 170px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-stage {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 28px 0 18px;
+}
+
+.home-panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 760px);
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  padding: 42px 34px;
+  text-align: center;
+  border-radius: 32px;
+  border: 1px solid rgba(128, 157, 213, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(243, 248, 255, 0.88)),
+    rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 28px 72px rgba(24, 50, 104, 0.14);
+  overflow: hidden;
+}
+
+.home-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(13, 94, 255, 0.1), transparent 32%),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.16), transparent 52%);
+  pointer-events: none;
+}
+
+.home-logo-shell,
+.home-copy,
+.home-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.home-logo-shell {
+  width: 132px;
+  height: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(140, 167, 220, 0.22);
+  box-shadow: 0 20px 40px rgba(24, 50, 104, 0.1);
+}
+
+.home-logo {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.home-copy {
+  display: grid;
+  gap: 12px;
+}
+
+.home-copy .section-kicker {
+  margin: 0;
+}
+
+.home-title {
+  margin: 0;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: clamp(2.5rem, 7vw, 4.5rem);
+  line-height: 0.95;
+}
+
+.home-subtitle {
+  margin: 0;
+  max-width: 34ch;
+  color: #4c638b;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  font-weight: 700;
+}
+
+.home-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.home-actions .btn-primary,
+.home-actions .btn-outline {
+  min-width: 220px;
+  padding: 15px 22px;
+}
+
+.home-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(6px);
+  animation: float-orb 11s ease-in-out infinite;
+}
+
+.home-orb-a {
+  top: 24px;
+  left: 8%;
+  width: 130px;
+  height: 130px;
+  background: radial-gradient(circle, rgba(13, 94, 255, 0.18), transparent 70%);
+}
+
+.home-orb-b {
+  right: 10%;
+  bottom: 36px;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(0, 168, 204, 0.16), transparent 72%);
+  animation-delay: -3s;
+}
+
+.home-orb-c {
+  top: 18%;
+  right: 18%;
+  width: 88px;
+  height: 88px;
+  background: radial-gradient(circle, rgba(255, 178, 74, 0.2), transparent 72%);
+  animation-delay: -6s;
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -778,6 +1001,16 @@ textarea {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes float-orb {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0);
   }
 }
 
@@ -840,6 +1073,17 @@ textarea {
     font-size: 1.65rem;
   }
 
+  .hero-brand {
+    align-items: flex-start;
+  }
+
+  .hero-logo-shell {
+    width: 82px;
+    height: 82px;
+    padding: 12px;
+    border-radius: 22px;
+  }
+
   .hero-actions,
   .row,
   .nav-actions {
@@ -862,5 +1106,51 @@ textarea {
 
   .brand-lockup {
     width: 100%;
+  }
+
+  .home-stage {
+    padding: 18px 0 8px;
+  }
+
+  .home-panel {
+    padding: 30px 18px;
+    border-radius: 24px;
+  }
+
+  .home-logo-shell {
+    width: 104px;
+    height: 104px;
+    padding: 14px;
+    border-radius: 24px;
+  }
+
+  .home-subtitle {
+    font-size: 0.98rem;
+  }
+
+  .home-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .home-actions .btn-primary,
+  .home-actions .btn-outline {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .home-orb-a {
+    left: -10px;
+    top: 0;
+  }
+
+  .home-orb-b {
+    right: -20px;
+    bottom: 18px;
+  }
+
+  .home-orb-c {
+    right: 6%;
+    top: 12%;
   }
 }

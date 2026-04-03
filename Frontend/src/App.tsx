@@ -141,6 +141,7 @@ export default function App() {
   const isMemberDemo = memberSession?.mode === "demo";
   const isAdminDemo = adminSession?.mode === "demo";
   const heading = pageHeading(screen);
+  const showShellHeader = screen !== "home";
 
   useEffect(() => {
     if (memberSession) localStorage.setItem(MEMBER_SESSION_KEY, JSON.stringify(memberSession));
@@ -625,21 +626,23 @@ export default function App() {
           onLogout={memberSession || adminSession ? logout : undefined}
         />
 
-        <section className="page-hero">
-          <div>
-            <p className="eyebrow">IET TechSphere</p>
-            <h1>{heading.title}</h1>
-          </div>
-          <div className="hero-meta">
-            {heading.tags.map((tag) => (
-              <span className="hero-pill" key={tag}>
-                {tag}
-              </span>
-            ))}
-          </div>
-        </section>
+        {showShellHeader && (
+          <section className="page-hero">
+            <div>
+              <p className="eyebrow">IET TechSphere</p>
+              <h1>{heading.title}</h1>
+            </div>
+            <div className="hero-meta">
+              {heading.tags.map((tag) => (
+                <span className="hero-pill" key={tag}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
 
-        <p className="notice">{notice}</p>
+        {showShellHeader && <p className="notice">{notice}</p>}
 
         <section className="page-content">
           {screen === "home" && <HomePage onOpenMember={() => setScreen("member-auth")} onOpenAdmin={() => setScreen("admin-auth")} />}

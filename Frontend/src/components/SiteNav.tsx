@@ -18,7 +18,6 @@ export function SiteNav({ activeScreen, onHome, onMember, onAdmin, onLogout }: S
         <TechSphereLogo compact />
         <span className="brand-copy">
           <strong>IET TechSphere</strong>
-          <small>Event Portal</small>
         </span>
       </button>
 
@@ -27,10 +26,10 @@ export function SiteNav({ activeScreen, onHome, onMember, onAdmin, onLogout }: S
           Home
         </button>
         <button className={isMember ? "nav-link active" : "nav-link"} type="button" onClick={onMember}>
-          Member Portal
+          Member
         </button>
         <button className={isAdmin ? "nav-link active" : "nav-link"} type="button" onClick={onAdmin}>
-          Admin Portal
+          Admin
         </button>
       </div>
 
@@ -41,7 +40,7 @@ export function SiteNav({ activeScreen, onHome, onMember, onAdmin, onLogout }: S
           </button>
         ) : (
           <button className="btn-primary nav-cta" type="button" onClick={onMember}>
-            Member Access
+            Member Login
           </button>
         )}
       </div>

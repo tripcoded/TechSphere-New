@@ -1,3 +1,5 @@
+import logo from "../vector_colored_logo.svg";
+
 interface HomePageProps {
   onOpenMember: () => void;
   onOpenAdmin: () => void;
@@ -5,60 +7,33 @@ interface HomePageProps {
 
 export function HomePage({ onOpenMember, onOpenAdmin }: HomePageProps) {
   return (
-    <section className="home-stack">
-      <section className="hero-panel">
-        <div className="hero-copy">
-          <p className="section-kicker">Official Team Portal</p>
-          <h2>Professional event operations for IET TechSphere.</h2>
-          <p>Manage registrations, team participation, and attendance through a cleaner official workflow.</p>
-          <div className="hero-actions">
+    <section className="home-landing">
+      <div className="home-stage">
+        <span className="home-orb home-orb-a" aria-hidden="true" />
+        <span className="home-orb home-orb-b" aria-hidden="true" />
+        <span className="home-orb home-orb-c" aria-hidden="true" />
+
+        <div className="home-panel">
+          <div className="home-logo-shell">
+            <img src={logo} alt="IET TechSphere Logo" className="home-logo" />
+          </div>
+
+          <div className="home-copy">
+            <p className="section-kicker">IET TechSphere</p>
+            <h1 className="home-title">IET TechSphere</h1>
+            <p className="home-subtitle">Official Technical Community of DDU Gorakhpur</p>
+          </div>
+
+          <div className="home-actions">
             <button className="btn-primary" type="button" onClick={onOpenMember}>
-              Enter Member Portal
+              Member Login / Signup
             </button>
             <button className="btn-outline" type="button" onClick={onOpenAdmin}>
-              Enter Admin Portal
+              Admin Login
             </button>
           </div>
         </div>
-
-        <div className="hero-showcase">
-          <div className="showcase-card highlight">
-            <span>Platform Focus</span>
-            <strong>Events. Teams. Attendance.</strong>
-            <p>Purpose-built for technical event execution and structured member participation.</p>
-          </div>
-          <div className="showcase-grid">
-            <div className="showcase-card">
-              <span>Member Workflow</span>
-              <strong>Register Events</strong>
-              <p>Create teams, share invite links, and maintain profiles.</p>
-            </div>
-            <div className="showcase-card">
-              <span>Admin Workflow</span>
-              <strong>Operate Live Events</strong>
-              <p>Track teams, search events, and mark attendance member-wise.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="info-grid compact-grid">
-        <article className="feature-card">
-          <p className="section-kicker">Structured</p>
-          <h3>Event registration with team invite flow</h3>
-          <p>Members no longer need raw IDs to add teammates.</p>
-        </article>
-        <article className="feature-card">
-          <p className="section-kicker">Controlled</p>
-          <h3>Admin access built around event operations</h3>
-          <p>Search, manage, and monitor event activity without clutter.</p>
-        </article>
-        <article className="feature-card accent">
-          <p className="section-kicker">Official</p>
-          <h3>Prepared for a production-facing front door</h3>
-          <p>A more formal shell, stronger hierarchy, and clearer brand presence.</p>
-        </article>
-      </section>
+      </div>
     </section>
   );
 }
