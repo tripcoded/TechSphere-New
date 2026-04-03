@@ -1,3 +1,7 @@
+import secrets
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -5,9 +9,27 @@ from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin_api_key
 from app.models import Event, Team, TeamMember, User
-from app.schemas.team import TeamCreateRequest, TeamMemberResponse, TeamResponse
+from app.schemas.team import (
+    JoinTeamByInviteRequest,
+    JoinTeamByInviteResponse,
+    TeamCreateRequest,
+    TeamInviteCreateResponse,
+    TeamMemberResponse,
+    TeamResponse,
+)
 
 router = APIRouter(prefix="/teams", tags=["Teams"])
+
+
+@dataclass
+class TeamInviteRecord:
+    team_id: int
+    event_id: int
+    expires_at: datetime
+
+
+_INVITES: dict[str, TeamInviteRecord] = {}
+_INVITE_TTL_HOURS = 72
 
 
 def _build_team_response(team: Team) -> TeamResponse:
@@ -77,6 +99,79 @@ def create_team(payload: TeamCreateRequest, db: Session = Depends(get_db), curre
     return _build_team_response(team)
 
 
+@router.post("/{team_id}/invite", response_model=TeamInviteCreateResponse)
+def create_team_invite(team_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    team = db.scalar(select(Team).where(Team.id == team_id))
+    if not team:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
+    if team.leader_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the team leader can create invite links")
+
+    token = secrets.token_urlsafe(18)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=_INVITE_TTL_HOURS)
+    _INVITES[token] = TeamInviteRecord(team_id=team.id, event_id=team.event_id, expires_at=expires_at)
+
+    return TeamInviteCreateResponse(
+        team_id=team.id,
+        invite_token=token,
+        invite_path=f"/invite/{token}",
+        expires_at=expires_at,
+    )
+
+
+@router.post("/join-by-invite", response_model=JoinTeamByInviteResponse)
+def join_team_by_invite(
+    payload: JoinTeamByInviteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    token = payload.invite_token.strip()
+    record = _INVITES.get(token)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite link is invalid")
+
+    if datetime.now(timezone.utc) > record.expires_at:
+        _INVITES.pop(token, None)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite link has expired")
+
+    team = db.scalar(
+        select(Team)
+        .where(Team.id == record.team_id)
+        .options(selectinload(Team.members).selectinload(TeamMember.user))
+    )
+    if not team:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team no longer exists")
+
+    existing_in_team = db.scalar(
+        select(TeamMember.id).where(TeamMember.team_id == team.id, TeamMember.user_id == current_user.id)
+    )
+    if existing_in_team:
+        return JoinTeamByInviteResponse(message="You are already in this team", team=_build_team_response(team))
+
+    existing_in_event = db.scalar(
+        select(TeamMember.id).join(Team, Team.id == TeamMember.team_id).where(
+            Team.event_id == team.event_id,
+            TeamMember.user_id == current_user.id,
+        )
+    )
+    if existing_in_event:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You are already registered in a team for this event",
+        )
+
+    membership = TeamMember(team_id=team.id, user_id=current_user.id)
+    db.add(membership)
+    db.commit()
+
+    team = db.scalar(
+        select(Team)
+        .where(Team.id == team.id)
+        .options(selectinload(Team.members).selectinload(TeamMember.user))
+    )
+    return JoinTeamByInviteResponse(message="You have joined the team", team=_build_team_response(team))
+
+
 @router.get("/my", response_model=list[TeamResponse])
 def my_teams(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     teams = db.scalars(
@@ -106,4 +201,3 @@ def event_teams(event_id: int, db: Session = Depends(get_db)):
         .order_by(Team.created_at.asc())
     ).all()
     return [_build_team_response(team) for team in teams]
-

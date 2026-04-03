@@ -25,3 +25,18 @@ class TeamResponse(BaseModel):
     created_at: datetime
     members: list[TeamMemberResponse]
 
+
+class TeamInviteCreateResponse(BaseModel):
+    team_id: int
+    invite_token: str
+    invite_path: str
+    expires_at: datetime
+
+
+class JoinTeamByInviteRequest(BaseModel):
+    invite_token: str = Field(min_length=6, max_length=256)
+
+
+class JoinTeamByInviteResponse(BaseModel):
+    message: str
+    team: TeamResponse

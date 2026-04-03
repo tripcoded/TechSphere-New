@@ -32,6 +32,9 @@ class User(Base):
     leader_teams: Mapped[list["Team"]] = relationship("Team", back_populates="leader")
     memberships: Mapped[list["TeamMember"]] = relationship("TeamMember", back_populates="user")
     attendance_records: Mapped[list["Attendance"]] = relationship("Attendance", back_populates="user")
+    profile: Mapped["UserProfile | None"] = relationship(
+        "UserProfile", back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class Event(Base):
@@ -98,3 +101,30 @@ class Attendance(Base):
     event: Mapped[Event] = relationship("Event", back_populates="attendance_records")
     user: Mapped[User] = relationship("User", back_populates="attendance_records")
 
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    headline: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    college: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    skills: Mapped[str | None] = mapped_column(Text, nullable=True)
+    github_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    linkedin_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+    user: Mapped[User] = relationship("User", back_populates="profile")
+
+
+class AdminProfile(Base):
+    __tablename__ = "admin_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    full_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    designation: Mapped[str | None] = mapped_column(String(140), nullable=True)
+    organization: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
