@@ -17,8 +17,9 @@ import {
   joinTeamByInvite,
   login,
   markAttendance,
-  rejectLeaderJoinRequest,
   register,
+  rejectLeaderJoinRequest,
+  resetPassword,
   sendOtp,
   updateAdminProfile,
   updateMyProfile,
@@ -163,7 +164,7 @@ export default function App() {
 
   const [memberTab, setMemberTab] = useState<MemberTab>("dashboard");
   const [adminTab, setAdminTab] = useState<AdminTab>("current-events");
-  const [memberAuthTab, setMemberAuthTab] = useState<"login" | "register">("login");
+  const [memberAuthTab, setMemberAuthTab] = useState<"login" | "register" | "forgot-password">("login");
 
   const [events, setEvents] = useState<EventItem[]>([]);
   const [memberTeams, setMemberTeams] = useState<TeamItem[]>([]);
@@ -439,6 +440,27 @@ export default function App() {
       setRegisterPassword("");
     } catch (error) {
       setNotice(`Registration failed: ${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onMemberResetPassword(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const response = await resetPassword({
+        email: registerEmail.trim(),
+        otp: registerOtp.trim(),
+        new_password: registerPassword,
+      });
+      setNotice(response.message || "Password reset successfully. You can now login.");
+      setMemberAuthTab("login");
+      setLoginEmail(registerEmail.trim());
+      setRegisterOtp("");
+      setRegisterPassword("");
+    } catch (error) {
+      setNotice(`Password reset failed: ${(error as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -968,6 +990,7 @@ export default function App() {
               setRegisterPassword={setRegisterPassword}
               onLogin={onMemberLogin}
               onRegister={onMemberRegister}
+              onResetPassword={onMemberResetPassword}
               onSendOtp={onSendOtp}
               onBack={() => setScreen(activeInviteToken ? "invite-preview" : "home")}
             />

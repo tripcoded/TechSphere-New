@@ -78,6 +78,13 @@ export async function login(email: string, password: string): Promise<{ access_t
   });
 }
 
+export async function resetPassword(payload: { email: string; otp: string; new_password: string }): Promise<{ message: string }> {
+  return apiRequest("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function getEvents(): Promise<EventItem[]> {
   return apiRequest("/events", { method: "GET" });
 }
@@ -195,17 +202,24 @@ export async function getAttendanceByEvent(eventId: number, adminApiKey: string)
 }
 
 export async function verifyAdminApiKey(adminApiKey: string): Promise<boolean> {
-  const response = await fetch(`${API_BASE}/admin/validate`, {
-    method: "GET",
-    headers: {
-      "X-API-Key": adminApiKey,
-    },
-  });
+  try {
+    const response = await fetch(`${API_BASE}/admin/validate`, {
+      method: "GET",
+      headers: {
+        "X-API-Key": adminApiKey,
+      },
+    });
 
-  if (response.status === 401) {
-    return false;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("API Key validation failed:", response.status, errorText);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("API Key validation error:", error);
+    throw new Error(`Failed to validate API key: ${(error as Error).message}`);
   }
-  return true;
 }
 
 export async function getMyProfile(token: string): Promise<{

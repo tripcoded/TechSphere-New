@@ -54,11 +54,12 @@ export function SiteNav({ items, subtitle = "IET On Campus", onBrandClick, onLog
               {item.label}
             </button>
           ))}
-        </div>
-
-        <div className="nav-actions">
           {onLogout && (
-            <button className="btn-outline" type="button" onClick={() => navClick(onLogout)}>
+            <button
+              className="nav-link nav-logout"
+              type="button"
+              onClick={() => navClick(onLogout)}
+            >
               Logout
             </button>
           )}

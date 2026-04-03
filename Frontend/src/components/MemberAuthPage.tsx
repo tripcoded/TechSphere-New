@@ -1,7 +1,7 @@
 import { FormEvent } from "react";
 
 interface MemberAuthPageProps {
-  tab: "login" | "register";
+  tab: "login" | "register" | "forgot-password";
   busy: boolean;
   loginEmail: string;
   loginPassword: string;
@@ -9,7 +9,7 @@ interface MemberAuthPageProps {
   registerEmail: string;
   registerOtp: string;
   registerPassword: string;
-  setTab: (tab: "login" | "register") => void;
+  setTab: (tab: "login" | "register" | "forgot-password") => void;
   setLoginEmail: (value: string) => void;
   setLoginPassword: (value: string) => void;
   setRegisterName: (value: string) => void;
@@ -18,6 +18,7 @@ interface MemberAuthPageProps {
   setRegisterPassword: (value: string) => void;
   onLogin: (event: FormEvent) => void;
   onRegister: (event: FormEvent) => void;
+  onResetPassword: (event: FormEvent) => void;
   onSendOtp: () => void;
   onBack: () => void;
 }
@@ -41,6 +42,7 @@ export function MemberAuthPage(props: MemberAuthPageProps) {
     setRegisterPassword,
     onLogin,
     onRegister,
+    onResetPassword,
     onSendOtp,
     onBack,
   } = props;
@@ -83,9 +85,14 @@ export function MemberAuthPage(props: MemberAuthPageProps) {
               Back
             </button>
           </div>
+          <p className="muted" style={{ fontSize: "0.85rem", textAlign: "center", marginTop: "8px" }}>
+            <button className="btn-link" type="button" onClick={() => setTab("forgot-password")} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", padding: 0 }}>
+              Forgot your password?
+            </button>
+          </p>
 
         </form>
-      ) : (
+      ) : tab === "register" ? (
         <form className="form" onSubmit={onRegister}>
           <label>
             Full Name
@@ -120,6 +127,43 @@ export function MemberAuthPage(props: MemberAuthPageProps) {
           <div className="row">
             <button className="btn-primary" disabled={busy} type="submit">
               {busy ? "Creating..." : "Create Account"}
+            </button>
+            <button className="btn-outline" type="button" onClick={onBack}>
+              Back
+            </button>
+          </div>
+        </form>
+      ) : (
+        <form className="form" onSubmit={onResetPassword}>
+          <label>
+            Email
+            <input
+              value={registerEmail}
+              onChange={(event) => setRegisterEmail(event.target.value)}
+              type="email"
+              required
+            />
+          </label>
+          <button className="btn-outline" type="button" onClick={onSendOtp} disabled={busy}>
+            Send OTP
+          </button>
+          <label>
+            OTP
+            <input value={registerOtp} onChange={(event) => setRegisterOtp(event.target.value)} type="text" required />
+          </label>
+          <label>
+            New Password
+            <input
+              value={registerPassword}
+              onChange={(event) => setRegisterPassword(event.target.value)}
+              type="password"
+              minLength={8}
+              required
+            />
+          </label>
+          <div className="row">
+            <button className="btn-primary" disabled={busy} type="submit">
+              {busy ? "Resetting..." : "Reset Password"}
             </button>
             <button className="btn-outline" type="button" onClick={onBack}>
               Back
