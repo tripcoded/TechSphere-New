@@ -351,10 +351,5 @@ This project is developed for the IET Technical Community, DDU Gorakhpur.
 
 ---
 
-**Last Updated:** April 2026  
-**Version:** 1.0.0  
-**Status:** 🟢 Active Development
-
----
 
 
