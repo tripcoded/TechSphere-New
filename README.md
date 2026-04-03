@@ -1,4 +1,4 @@
-# 🎯 IET TechSphere
+<!-- # 🎯 IET TechSphere
 
 **Official Event Management Platform for IET Technical Community, DDU Gorakhpur**
 
@@ -329,27 +329,6 @@ For detailed API documentation, run backend and visit `/docs`
 
 ---
 
-## 📄 License
-
-This project is developed for the IET Technical Community, DDU Gorakhpur.
-
----
 
 
-**IET Technical Community** is an active student organization dedicated to:
-- Organizing technical events and workshops
-- Promoting collaborative learning
-- Building industry connections
-- Developing leadership skills
-
----
-
-## 🙏 Acknowledgments
-
-- All contributors and community members
-- IET community coordinators and volunteers
-
----
-
-
-
+ -->
