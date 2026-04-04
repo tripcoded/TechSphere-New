@@ -73,6 +73,10 @@ class Settings:
     smtp_from_email: str = os.getenv("SMTP_FROM_EMAIL", smtp_user or "no-reply@techsphere.local")
     smtp_use_tls: bool = _get_bool("SMTP_USE_TLS", True)
     smtp_use_ssl: bool = _get_bool("SMTP_USE_SSL", False)
+    email_provider: str = os.getenv("EMAIL_PROVIDER", "auto").strip().lower()
+    resend_api_key: str = os.getenv("RESEND_API_KEY", "")
+    resend_api_url: str = os.getenv("RESEND_API_URL", "https://api.resend.com/emails").strip()
+    resend_from_email: str = os.getenv("RESEND_FROM_EMAIL", smtp_from_email or "no-reply@techsphere.local")
 
     otp_length: int = _get_int("OTP_LENGTH", 6)
     otp_ttl_seconds: int = _get_int("OTP_TTL_SECONDS", 300)

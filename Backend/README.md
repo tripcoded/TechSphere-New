@@ -56,3 +56,4 @@ Open docs at:
 - For production, replace defaults with strong secrets and a PostgreSQL URL.
 - To test Redis connectivity separately, run `python redis_connection_check.py`.
 - To test PostgreSQL connectivity separately, run `python db_connection_check.py`.
+- On Render Free web services, outbound SMTP ports `25`, `465`, and `587` are blocked. Use `EMAIL_PROVIDER=auto` or `EMAIL_PROVIDER=resend` with `RESEND_API_KEY` instead of Gmail SMTP for OTP emails.

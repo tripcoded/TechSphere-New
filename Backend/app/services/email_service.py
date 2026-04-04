@@ -1,23 +1,19 @@
 import smtplib
 from email.message import EmailMessage
 
+import httpx
+
 from app.config import settings
 
 
 class EmailService:
     @staticmethod
-    def _build_otp_message(recipient: str, otp_code: str) -> EmailMessage:
-        message = EmailMessage()
-        message["Subject"] = "Verify your email"
-        message["From"] = f"TechSphere <{settings.smtp_from_email}>"
-        message["To"] = recipient
-
-        # Plain text fallback for clients that do not render HTML.
-        message.set_content(
+    def _build_otp_content(otp_code: str) -> tuple[str, str, str]:
+        subject = "Verify your email"
+        text_content = (
             f"Your OTP is {otp_code}. "
             f"It expires in {settings.otp_ttl_seconds // 60} minutes."
         )
-
         html_content = f"""
         <html>
             <body style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 20px;">
@@ -58,26 +54,84 @@ class EmailService:
             </body>
         </html>
         """
+        return subject, text_content, html_content
 
+    @classmethod
+    def _build_otp_message(cls, recipient: str, otp_code: str) -> EmailMessage:
+        subject, text_content, html_content = cls._build_otp_content(otp_code)
+        message = EmailMessage()
+        message["Subject"] = subject
+        message["From"] = f"TechSphere <{settings.smtp_from_email}>"
+        message["To"] = recipient
+
+        # Plain text fallback for clients that do not render HTML.
+        message.set_content(text_content)
         message.add_alternative(html_content, subtype="html")
         return message
 
-    def send_otp_email(self, recipient: str, otp_code: str) -> None:
+    @staticmethod
+    def _resolve_provider() -> str:
+        if settings.email_provider == "auto":
+            return "resend" if settings.resend_api_key else "smtp"
+        return settings.email_provider
+
+    @staticmethod
+    def _send_via_smtp(message: EmailMessage) -> None:
         if not settings.smtp_host or not settings.smtp_user or not settings.smtp_password:
             raise ValueError("SMTP is not configured. Set SMTP_HOST, SMTP_USER and SMTP_PASSWORD.")
 
-        message = self._build_otp_message(recipient=recipient, otp_code=otp_code)
+        try:
+            if settings.smtp_use_ssl:
+                with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=15) as client:
+                    client.login(settings.smtp_user, settings.smtp_password)
+                    client.send_message(message)
+                return
 
-        if settings.smtp_use_ssl:
-            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=15) as client:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as client:
+                client.ehlo()
+                if settings.smtp_use_tls:
+                    client.starttls()
+                    client.ehlo()
                 client.login(settings.smtp_user, settings.smtp_password)
                 client.send_message(message)
-            return
+        except OSError as exc:
+            if exc.errno == 101 and settings.smtp_port in {25, 465, 587}:
+                raise OSError(
+                    "SMTP connection failed before handshake. If this service runs on Render Free, "
+                    "ports 25, 465, and 587 are blocked. Configure Resend or move to a paid instance."
+                ) from exc
+            raise
 
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as client:
-            client.ehlo()
-            if settings.smtp_use_tls:
-                client.starttls()
-                client.ehlo()
-            client.login(settings.smtp_user, settings.smtp_password)
-            client.send_message(message)
+    @classmethod
+    def _send_via_resend(cls, recipient: str, otp_code: str) -> None:
+        if not settings.resend_api_key:
+            raise ValueError("Resend is not configured. Set RESEND_API_KEY.")
+
+        subject, text_content, html_content = cls._build_otp_content(otp_code)
+        response = httpx.post(
+            settings.resend_api_url,
+            headers={
+                "Authorization": f"Bearer {settings.resend_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": f"TechSphere <{settings.resend_from_email}>",
+                "to": [recipient],
+                "subject": subject,
+                "text": text_content,
+                "html": html_content,
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+
+    def send_otp_email(self, recipient: str, otp_code: str) -> None:
+        provider = self._resolve_provider()
+        if provider == "smtp":
+            message = self._build_otp_message(recipient=recipient, otp_code=otp_code)
+            self._send_via_smtp(message)
+            return
+        if provider == "resend":
+            self._send_via_resend(recipient=recipient, otp_code=otp_code)
+            return
+        raise ValueError("Unsupported email provider. Use EMAIL_PROVIDER=auto, smtp, or resend.")
