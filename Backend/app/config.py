@@ -44,7 +44,6 @@ DEFAULT_ALLOWED_ORIGINS = [
     "http://localhost:5175",
     "http://127.0.0.1:5175",
 ]
-DEFAULT_ALLOWED_ORIGIN_REGEX = r"^https://tech-sphere-new(?:-[a-z0-9-]+)?\.vercel\.app$"
 
 
 class Settings:
@@ -52,10 +51,6 @@ class Settings:
     app_env: str = os.getenv("APP_ENV", "development")
     app_debug: bool = _get_bool("APP_DEBUG", False)
     allowed_origins: list[str] = _get_list("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
-    allowed_origin_regex: str = os.getenv(
-        "ALLOWED_ORIGIN_REGEX",
-        DEFAULT_ALLOWED_ORIGIN_REGEX if app_env.strip().lower() == "production" else "",
-    ).strip()
 
     secret_key: str = os.getenv("SECRET_KEY", "change-me-in-production")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
@@ -73,10 +68,6 @@ class Settings:
     smtp_from_email: str = os.getenv("SMTP_FROM_EMAIL", smtp_user or "no-reply@techsphere.local")
     smtp_use_tls: bool = _get_bool("SMTP_USE_TLS", True)
     smtp_use_ssl: bool = _get_bool("SMTP_USE_SSL", False)
-    email_provider: str = os.getenv("EMAIL_PROVIDER", "auto").strip().lower()
-    resend_api_key: str = os.getenv("RESEND_API_KEY", "")
-    resend_api_url: str = os.getenv("RESEND_API_URL", "https://api.resend.com/emails").strip()
-    resend_from_email: str = os.getenv("RESEND_FROM_EMAIL", smtp_from_email or "no-reply@techsphere.local")
 
     otp_length: int = _get_int("OTP_LENGTH", 6)
     otp_ttl_seconds: int = _get_int("OTP_TTL_SECONDS", 300)
@@ -85,6 +76,7 @@ class Settings:
     otp_email_max_requests: int = _get_int("OTP_EMAIL_MAX_REQUESTS", 3)
     otp_ip_max_requests: int = _get_int("OTP_IP_MAX_REQUESTS", 10)
     otp_rate_window_seconds: int = _get_int("OTP_RATE_WINDOW_SECONDS", 900)
+    otp_use_memory_store: bool = _get_bool("OTP_USE_MEMORY_STORE", False)
 
     admin_api_key: str = os.getenv("ADMIN_API_KEY", "")
 

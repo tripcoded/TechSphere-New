@@ -52,10 +52,8 @@ Open docs at:
 
 - OTP data now requires Redis in production.
 - Configure `ALLOWED_ORIGINS` so frontend CORS works correctly.
-- In production, `ALLOWED_ORIGIN_REGEX` can be used to allow Vercel preview domains like `https://tech-sphere-new-e3iu.vercel.app`.
 - Tables auto-create on startup using SQLAlchemy metadata.
 - For production, replace defaults with strong secrets and a PostgreSQL URL.
 - To test Redis connectivity separately, run `python redis_connection_check.py`.
 - To test PostgreSQL connectivity separately, run `python db_connection_check.py`.
-- On Render Free web services, outbound SMTP ports `25`, `465`, and `587` are blocked. Use `EMAIL_PROVIDER=auto` or `EMAIL_PROVIDER=resend` with `RESEND_API_KEY` instead of Gmail SMTP for OTP emails.
-- Resend's `onboarding@resend.dev` sender is for testing only and can send only to the email address tied to your Resend account. For actual OTP delivery, verify your own domain in Resend and set `RESEND_FROM_EMAIL` to an address on that domain.
+- For local development without Redis, set `OTP_USE_MEMORY_STORE=true` in `Backend/.env`.

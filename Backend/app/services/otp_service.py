@@ -3,6 +3,7 @@ import hmac
 import json
 import secrets
 from datetime import datetime, timedelta, timezone
+from threading import Lock
 
 try:
     from redis.exceptions import RedisError, WatchError
@@ -18,6 +19,13 @@ from app.redis_client import get_redis_client, namespaced_key
 
 class OTPStoreUnavailableError(RuntimeError):
     pass
+
+
+_memory_lock = Lock()
+_memory_otps: dict[str, dict[str, str | int]] = {}
+_memory_email_requests: dict[str, list[int]] = {}
+_memory_ip_requests: dict[str, list[int]] = {}
+_memory_cooldowns: dict[str, datetime] = {}
 
 
 class OTPService:
@@ -47,10 +55,39 @@ class OTPService:
     def _cooldown_key(self, email: str) -> str:
         return namespaced_key("otp", "cooldown", self._normalize_email(email))
 
+    def _use_memory_store(self) -> bool:
+        return settings.otp_use_memory_store
+
     def can_send(self, email: str, ip_address: str) -> tuple[bool, str]:
         email_key = self._normalize_email(email)
+        ip_key = self._normalize_ip(ip_address)
         now = self._now()
         window_start = int((now - timedelta(seconds=settings.otp_rate_window_seconds)).timestamp())
+
+        if self._use_memory_store():
+            with _memory_lock:
+                email_events = [score for score in _memory_email_requests.get(email_key, []) if score > window_start]
+                ip_events = [score for score in _memory_ip_requests.get(ip_key, []) if score > window_start]
+                _memory_email_requests[email_key] = email_events
+                _memory_ip_requests[ip_key] = ip_events
+
+                cooldown_expires_at = _memory_cooldowns.get(email_key)
+                if cooldown_expires_at and cooldown_expires_at <= now:
+                    _memory_cooldowns.pop(email_key, None)
+                    cooldown_expires_at = None
+
+                cooldown_ttl = int((cooldown_expires_at - now).total_seconds()) if cooldown_expires_at else 0
+
+            if len(email_events) >= settings.otp_email_max_requests:
+                return False, "Too many OTP requests for this email. Please try later."
+
+            if len(ip_events) >= settings.otp_ip_max_requests:
+                return False, "Too many OTP requests from this IP. Please try later."
+
+            if cooldown_ttl > 0:
+                return False, f"Please wait {cooldown_ttl} seconds before requesting again."
+
+            return True, ""
 
         try:
             redis_client = get_redis_client()
@@ -77,19 +114,27 @@ class OTPService:
 
     def register_send(self, email: str, ip_address: str) -> None:
         email_key = self._normalize_email(email)
+        ip_key = self._normalize_ip(ip_address)
         now = self._now()
         event_score = int(now.timestamp())
         ttl_seconds = settings.otp_rate_window_seconds + 60
         email_member = f"{event_score}:{secrets.token_hex(8)}"
         ip_member = f"{event_score}:{secrets.token_hex(8)}"
 
+        if self._use_memory_store():
+            with _memory_lock:
+                _memory_email_requests.setdefault(email_key, []).append(event_score)
+                _memory_ip_requests.setdefault(ip_key, []).append(event_score)
+                _memory_cooldowns[email_key] = now + timedelta(seconds=settings.otp_resend_cooldown_seconds)
+            return
+
         try:
             redis_client = get_redis_client()
             pipeline = redis_client.pipeline()
             pipeline.zadd(self._email_requests_key(email_key), {email_member: event_score})
             pipeline.expire(self._email_requests_key(email_key), ttl_seconds)
-            pipeline.zadd(self._ip_requests_key(ip_address), {ip_member: event_score})
-            pipeline.expire(self._ip_requests_key(ip_address), ttl_seconds)
+            pipeline.zadd(self._ip_requests_key(ip_key), {ip_member: event_score})
+            pipeline.expire(self._ip_requests_key(ip_key), ttl_seconds)
             pipeline.set(self._cooldown_key(email_key), str(event_score), ex=settings.otp_resend_cooldown_seconds)
             pipeline.execute()
         except (RedisError, RuntimeError) as exc:
@@ -104,6 +149,11 @@ class OTPService:
             "attempts_remaining": settings.otp_max_attempts,
         }
 
+        if self._use_memory_store():
+            with _memory_lock:
+                _memory_otps[self._otp_key(email_key)] = payload
+            return
+
         try:
             redis_client = get_redis_client()
             redis_client.set(self._otp_key(email_key), json.dumps(payload), ex=settings.otp_ttl_seconds)
@@ -112,6 +162,11 @@ class OTPService:
 
     def clear_otp(self, email: str) -> None:
         email_key = self._normalize_email(email)
+        if self._use_memory_store():
+            with _memory_lock:
+                _memory_otps.pop(self._otp_key(email_key), None)
+            return
+
         try:
             redis_client = get_redis_client()
             redis_client.delete(self._otp_key(email_key))
@@ -122,6 +177,36 @@ class OTPService:
         email_key = self._normalize_email(email)
         now = self._now()
         key = self._otp_key(email_key)
+
+        if self._use_memory_store():
+            with _memory_lock:
+                record = _memory_otps.get(key)
+                if not record:
+                    return False
+
+                try:
+                    expires_at = datetime.fromisoformat(str(record["expires_at"]))
+                    attempts_remaining = int(record["attempts_remaining"])
+                    stored_hash = str(record["otp_hash"])
+                except (KeyError, TypeError, ValueError):
+                    _memory_otps.pop(key, None)
+                    return False
+
+                if now > expires_at:
+                    _memory_otps.pop(key, None)
+                    return False
+
+                is_match = hmac.compare_digest(stored_hash, self._hash_otp(email_key, otp_code))
+                if is_match:
+                    _memory_otps.pop(key, None)
+                    return True
+
+                attempts_remaining -= 1
+                if attempts_remaining <= 0:
+                    _memory_otps.pop(key, None)
+                else:
+                    record["attempts_remaining"] = attempts_remaining
+                return False
 
         try:
             redis_client = get_redis_client()
