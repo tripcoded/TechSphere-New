@@ -26,7 +26,7 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
 
 
 def require_admin_api_key(x_api_key: str = Header(default="", alias="X-API-Key")) -> None:
-    if not settings.admin_api_key or settings.admin_api_key == "change-admin-key":
+    if not settings.admin_api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Admin API key is not configured",
@@ -37,4 +37,3 @@ def require_admin_api_key(x_api_key: str = Header(default="", alias="X-API-Key")
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid admin API key",
         )
-

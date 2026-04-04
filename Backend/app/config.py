@@ -27,10 +27,30 @@ def _get_int(name: str, default: int) -> int:
         return default
 
 
+def _get_list(name: str, default: list[str]) -> list[str]:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    items = [item.strip() for item in value.split(",")]
+    cleaned = [item for item in items if item]
+    return cleaned or default
+
+
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5175",
+]
+
+
 class Settings:
     app_name: str = os.getenv("APP_NAME", "TechSphere Event Management API")
     app_env: str = os.getenv("APP_ENV", "development")
     app_debug: bool = _get_bool("APP_DEBUG", False)
+    allowed_origins: list[str] = _get_list("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
 
     secret_key: str = os.getenv("SECRET_KEY", "change-me-in-production")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
@@ -38,6 +58,8 @@ class Settings:
     password_hash_iterations: int = _get_int("PASSWORD_HASH_ITERATIONS", 120_000)
 
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./techsphere.db")
+    redis_url: str = os.getenv("REDIS_URL", "")
+    redis_prefix: str = os.getenv("REDIS_PREFIX", "techsphere")
 
     smtp_host: str = os.getenv("SMTP_HOST", "")
     smtp_port: int = _get_int("SMTP_PORT", 587)
@@ -55,7 +77,7 @@ class Settings:
     otp_ip_max_requests: int = _get_int("OTP_IP_MAX_REQUESTS", 10)
     otp_rate_window_seconds: int = _get_int("OTP_RATE_WINDOW_SECONDS", 900)
 
-    admin_api_key: str = os.getenv("ADMIN_API_KEY", "change-admin-key")
+    admin_api_key: str = os.getenv("ADMIN_API_KEY", "")
 
 
 settings = Settings()

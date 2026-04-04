@@ -68,4 +68,3 @@ def get_event_attendance(event_id: int, db: Session = Depends(get_db)):
 
     records = db.scalars(select(Attendance).where(Attendance.event_id == event_id).order_by(Attendance.user_id.asc())).all()
     return [_to_response(record) for record in records]
-

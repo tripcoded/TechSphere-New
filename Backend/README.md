@@ -50,7 +50,9 @@ Open docs at:
 
 ## 4. Notes
 
-- OTP data and rate-limit counters are stored in-memory in this phase.
+- OTP data now requires Redis in production.
+- Configure `ALLOWED_ORIGINS` so frontend CORS works correctly.
 - Tables auto-create on startup using SQLAlchemy metadata.
 - For production, replace defaults with strong secrets and a PostgreSQL URL.
+- To test Redis connectivity separately, run `python redis_connection_check.py`.
 - To test PostgreSQL connectivity separately, run `python db_connection_check.py`.

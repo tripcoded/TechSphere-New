@@ -70,4 +70,3 @@ def update_admin_profile(payload: AdminProfileUpdate, db: Session = Depends(get_
     db.commit()
     db.refresh(profile)
     return AdminProfileResponse.model_validate(profile)
-

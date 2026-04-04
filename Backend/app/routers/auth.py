@@ -11,7 +11,7 @@ from app.models import User
 from app.schemas.auth import LoginRequest, RegisterRequest, RegisterResponse, SendOTPRequest, TokenResponse, UserResponse
 from app.security import create_access_token, hash_password, verify_password
 from app.services.email_service import EmailService
-from app.services.otp_service import OTPService
+from app.services.otp_service import OTPService, OTPStoreUnavailableError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -23,24 +23,44 @@ email_service = EmailService()
 @router.post("/send-otp")
 def send_otp(payload: SendOTPRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
-    can_send, reason = otp_service.can_send(payload.email, client_ip)
+    try:
+        can_send, reason = otp_service.can_send(payload.email, client_ip)
+    except OTPStoreUnavailableError as exc:
+        logger.exception("OTP availability check failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OTP service is temporarily unavailable. Please try again later.",
+        )
     if not can_send:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=reason)
 
     otp_code = "".join(str(secrets.randbelow(10)) for _ in range(settings.otp_length))
-    otp_service.set_otp(payload.email, otp_code)
+    try:
+        otp_service.set_otp(payload.email, otp_code)
+    except OTPStoreUnavailableError as exc:
+        logger.exception("OTP write failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OTP service is temporarily unavailable. Please try again later.",
+        )
 
     try:
         email_service.send_otp_email(payload.email, otp_code)
     except Exception as exc:
-        otp_service.clear_otp(payload.email)
+        try:
+            otp_service.clear_otp(payload.email)
+        except OTPStoreUnavailableError:
+            logger.warning("OTP cleanup skipped because Redis is unavailable.")
         logger.exception("OTP email delivery failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to send OTP right now. Please try again later.",
         )
 
-    otp_service.register_send(payload.email, client_ip)
+    try:
+        otp_service.register_send(payload.email, client_ip)
+    except OTPStoreUnavailableError:
+        logger.warning("OTP was sent but rate-limit counters could not be updated.")
     return {"message": "OTP sent successfully"}
 
 
@@ -51,7 +71,16 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    if not otp_service.verify_otp(normalized_email, payload.otp):
+    try:
+        otp_valid = otp_service.verify_otp(normalized_email, payload.otp)
+    except OTPStoreUnavailableError as exc:
+        logger.exception("OTP verification failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OTP service is temporarily unavailable. Please try again later.",
+        )
+
+    if not otp_valid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP")
 
     user = User(
@@ -75,4 +104,3 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
     token = create_access_token(subject=user.id)
     return TokenResponse(access_token=token)
-
