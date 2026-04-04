@@ -44,6 +44,7 @@ DEFAULT_ALLOWED_ORIGINS = [
     "http://localhost:5175",
     "http://127.0.0.1:5175",
 ]
+DEFAULT_ALLOWED_ORIGIN_REGEX = r"^https://tech-sphere-new(?:-[a-z0-9-]+)?\.vercel\.app$"
 
 
 class Settings:
@@ -51,6 +52,10 @@ class Settings:
     app_env: str = os.getenv("APP_ENV", "development")
     app_debug: bool = _get_bool("APP_DEBUG", False)
     allowed_origins: list[str] = _get_list("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
+    allowed_origin_regex: str = os.getenv(
+        "ALLOWED_ORIGIN_REGEX",
+        DEFAULT_ALLOWED_ORIGIN_REGEX if app_env.strip().lower() == "production" else "",
+    ).strip()
 
     secret_key: str = os.getenv("SECRET_KEY", "change-me-in-production")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")

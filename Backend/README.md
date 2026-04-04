@@ -52,6 +52,7 @@ Open docs at:
 
 - OTP data now requires Redis in production.
 - Configure `ALLOWED_ORIGINS` so frontend CORS works correctly.
+- In production, `ALLOWED_ORIGIN_REGEX` can be used to allow Vercel preview domains like `https://tech-sphere-new-e3iu.vercel.app`.
 - Tables auto-create on startup using SQLAlchemy metadata.
 - For production, replace defaults with strong secrets and a PostgreSQL URL.
 - To test Redis connectivity separately, run `python redis_connection_check.py`.
