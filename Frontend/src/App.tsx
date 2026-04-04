@@ -259,6 +259,15 @@ export default function App() {
   }, [activeInviteToken]);
 
   useEffect(() => {
+    if (notice) {
+      const timer = setTimeout(() => {
+        setNotice("");
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [notice]);
+
+  useEffect(() => {
     if (!adminSession || selectedEventId === null || screen !== "admin-dashboard") return;
     void loadAdminEventDetails(adminSession, selectedEventId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -911,6 +920,7 @@ export default function App() {
                   setScreen("member-dashboard");
                   return;
                 }
+                setMemberAuthTab("login");
                 setScreen("member-auth");
               },
             },
@@ -970,7 +980,7 @@ export default function App() {
         {showShellHeader && notice && <p className="notice">{notice}</p>}
 
         <section className="page-content">
-          {screen === "home" && <HomePage onOpenMember={() => setScreen("member-auth")} onOpenAdmin={() => setScreen("admin-auth")} />}
+          {screen === "home" && <HomePage onOpenMember={() => { setMemberAuthTab("login"); setScreen("member-auth"); }} onOpenAdmin={() => setScreen("admin-auth")} />}
           {screen === "member-auth" && (
             <MemberAuthPage
               tab={memberAuthTab}
