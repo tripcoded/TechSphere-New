@@ -369,6 +369,25 @@ export function MemberDashboard(props: MemberDashboardProps) {
                 <section className="profile-section-card">
                   <div className="profile-section-head">
                     <div>
+                      <p className="section-kicker">Account Details</p>
+                      
+                    </div>
+                    
+                  </div>
+
+                  <label>
+                    Full Name
+                    <input value={profile.full_name?.trim() || ""} type="text" readOnly placeholder="Name not provided during signup" />
+                  </label>
+                  <label>
+                    Email ID
+                    <input value={profile.email || email} type="email" readOnly />
+                  </label>
+                </section>
+
+                <section className="profile-section-card">
+                  <div className="profile-section-head">
+                    <div>
                       <p className="section-kicker">Academic Profile</p>
                       <h3>Required For Access</h3>
                     </div>
@@ -429,9 +448,9 @@ export function MemberDashboard(props: MemberDashboardProps) {
                   <div className="profile-section-head">
                     <div>
                       <p className="section-kicker">Digital Presence</p>
-                      <h3>Optional Public Links</h3>
+                      
                     </div>
-                    <span className="member-pill">Optional</span>
+                    
                   </div>
 
                   <label>

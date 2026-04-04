@@ -67,6 +67,24 @@ interface AdminSession {
 const MEMBER_SESSION_KEY = "ts_member_session";
 const ADMIN_SESSION_KEY = "ts_admin_session";
 
+function createEmptyMemberProfile(email = ""): MemberProfile {
+  return {
+    full_name: "",
+    email,
+    roll_no: "",
+    branch: null,
+    year: null,
+    headline: "",
+    college: "",
+    bio: "",
+    skills: "",
+    github_url: "",
+    linkedin_url: "",
+    portfolio_url: "",
+    academic_profile_completed: false,
+  };
+}
+
 function readStored<T>(key: string): T | null {
   try {
     const raw = localStorage.getItem(key);
@@ -200,21 +218,8 @@ export default function App() {
   const [eventSearch, setEventSearch] = useState("");
   const [teamSearch, setTeamSearch] = useState("");
 
-  const [memberProfile, setMemberProfile] = useState<MemberProfile>({
-    full_name: "",
-    email: "",
-    roll_no: "",
-    branch: null,
-    year: null,
-    headline: "",
-    college: "",
-    bio: "",
-    skills: "",
-    github_url: "",
-    linkedin_url: "",
-    portfolio_url: "",
-    academic_profile_completed: false,
-  });
+  const [memberProfile, setMemberProfile] = useState<MemberProfile>(() => createEmptyMemberProfile());
+  const [memberProfileChecked, setMemberProfileChecked] = useState(false);
   const [adminProfile, setAdminProfile] = useState<AdminProfile>({
     full_name: "",
     designation: "",
@@ -226,7 +231,7 @@ export default function App() {
   const heading = pageHeading(screen);
   const showShellHeader = screen !== "home";
   const canUseNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
-  const academicProfileLocked = Boolean(memberSession && !memberProfile.academic_profile_completed);
+  const academicProfileLocked = Boolean(memberSession && memberProfileChecked && !memberProfile.academic_profile_completed);
 
   useEffect(() => {
     if (memberSession) localStorage.setItem(MEMBER_SESSION_KEY, JSON.stringify(memberSession));
@@ -243,13 +248,13 @@ export default function App() {
       setScreen("invite-preview");
       void loadInvitePreview(activeInviteToken);
       if (memberSession) {
-        void loadMemberData(memberSession);
+        void loadMemberData(memberSession, { resetProfileGate: true });
       } else if (adminSession) {
         void loadAdminBase(adminSession);
       }
     } else if (memberSession) {
       setScreen("member-dashboard");
-      void loadMemberData(memberSession);
+      void loadMemberData(memberSession, { resetProfileGate: true });
     } else if (adminSession) {
       setScreen("admin-dashboard");
       void loadAdminBase(adminSession);
@@ -285,9 +290,9 @@ export default function App() {
   }, [adminSession?.apiKey, adminSession?.mode, selectedEventId, screen]);
 
   useEffect(() => {
-    if (!memberSession || !academicProfileLocked || memberTab === "profile") return;
+    if (!memberSession || !memberProfileChecked || !academicProfileLocked || memberTab === "profile") return;
     setMemberTab("profile");
-  }, [academicProfileLocked, memberSession, memberTab]);
+  }, [academicProfileLocked, memberProfileChecked, memberSession, memberTab]);
 
   function setInviteRouteToken(token: string | null) {
     const url = new URL(window.location.href);
@@ -318,7 +323,12 @@ export default function App() {
     }
   }
 
-  async function loadMemberData(session: MemberSession) {
+  async function loadMemberData(session: MemberSession, options?: { resetProfileGate?: boolean }) {
+    if (options?.resetProfileGate) {
+      setMemberProfileChecked(false);
+      setMemberProfile(createEmptyMemberProfile(session.email));
+      setMemberTab("dashboard");
+    }
     setBusy(true);
     try {
       // DEMO/DEVELOPMENT - Commented out for production
@@ -348,7 +358,12 @@ export default function App() {
       setMemberTeams(teamItems);
       setLeaderRequests(joinRequests);
       setMemberProfile(profile);
-      if (!profile.academic_profile_completed) {
+      setMemberProfileChecked(true);
+      if (profile.academic_profile_completed) {
+        if (options?.resetProfileGate && !activeInviteToken) {
+          setMemberTab("dashboard");
+        }
+      } else {
         setMemberTab("profile");
         setNotice("Complete your academic profile to unlock event features.");
       }
@@ -435,7 +450,7 @@ export default function App() {
       setMemberSession(session);
       setAdminSession(null);
       setScreen(activeInviteToken ? "invite-preview" : "member-dashboard");
-      await loadMemberData(session);
+      await loadMemberData(session, { resetProfileGate: true });
     } catch (error) {
       setNotice(`Member login failed: ${(error as Error).message}`);
     } finally {
@@ -945,9 +960,12 @@ export default function App() {
   function logout() {
     setMemberSession(null);
     setAdminSession(null);
+    setMemberProfile(createEmptyMemberProfile());
+    setMemberProfileChecked(false);
     setInviteLinks({});
     setInviteTokenInput("");
     setLeaderRequests([]);
+    setMemberTab("dashboard");
     if (activeInviteToken) {
       setScreen("invite-preview");
       return;

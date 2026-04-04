@@ -26,6 +26,8 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup() -> None:
+    if not settings.database_auto_schema_sync:
+        return
     Base.metadata.create_all(bind=engine)
     ensure_runtime_schema(engine)
 

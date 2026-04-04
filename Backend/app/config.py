@@ -9,6 +9,10 @@ ENV_FILE = BACKEND_ROOT / ".env"
 
 load_dotenv(dotenv_path=ENV_FILE)
 
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./techsphere.db")
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+IS_SUPABASE_POOLER = "pooler.supabase.com" in DATABASE_URL
+
 
 def _get_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
@@ -48,7 +52,7 @@ DEFAULT_ALLOWED_ORIGINS = [
 
 class Settings:
     app_name: str = os.getenv("APP_NAME", "TechSphere Event Management API")
-    app_env: str = os.getenv("APP_ENV", "development")
+    app_env: str = APP_ENV
     app_debug: bool = _get_bool("APP_DEBUG", False)
     allowed_origins: list[str] = _get_list("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
 
@@ -57,7 +61,9 @@ class Settings:
     access_token_expire_minutes: int = _get_int("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24)
     password_hash_iterations: int = _get_int("PASSWORD_HASH_ITERATIONS", 120_000)
 
-    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./techsphere.db")
+    database_url: str = DATABASE_URL
+    database_use_null_pool: bool = _get_bool("DATABASE_USE_NULL_POOL", IS_SUPABASE_POOLER)
+    database_auto_schema_sync: bool = _get_bool("DATABASE_AUTO_SCHEMA_SYNC", not IS_SUPABASE_POOLER)
     redis_url: str = os.getenv("REDIS_URL", "")
     redis_prefix: str = os.getenv("REDIS_PREFIX", "techsphere")
 
