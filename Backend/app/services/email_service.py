@@ -8,6 +8,8 @@ from app.config import settings
 
 
 class EmailService:
+    RESEND_USER_AGENT = "techsphere-backend/1.0"
+
     @staticmethod
     def _build_otp_content(otp_code: str) -> tuple[str, str, str]:
         subject = "Verify your email"
@@ -93,6 +95,46 @@ class EmailService:
         return urlunsplit((parsed.scheme, parsed.netloc, normalized_path, parsed.query, parsed.fragment))
 
     @staticmethod
+    def _raise_resend_error(response: httpx.Response) -> None:
+        if response.is_success:
+            return
+
+        detail = response.text.strip()
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+
+        if isinstance(payload, dict):
+            detail = payload.get("message") or payload.get("error") or payload.get("name") or detail
+
+        if response.status_code == 401:
+            raise ValueError(
+                "Resend rejected the request with 401. Check that RESEND_API_KEY is present and valid."
+            )
+
+        if response.status_code == 403:
+            from_email = settings.resend_from_email.strip().lower()
+            if from_email.endswith("@resend.dev"):
+                raise ValueError(
+                    "Resend rejected the request with 403. The testing sender onboarding@resend.dev "
+                    "can only send to the email address associated with your Resend account. To send OTPs "
+                    "to other recipients, verify your own domain in Resend and set RESEND_FROM_EMAIL to "
+                    "an address on that domain."
+                )
+            raise ValueError(
+                "Resend rejected the request with 403. Check that RESEND_FROM_EMAIL uses a verified "
+                "domain in Resend and that the API key has permission to send email. "
+                f"Resend response: {detail or 'Forbidden'}"
+            )
+
+        raise httpx.HTTPStatusError(
+            f"Resend email request failed with status {response.status_code}: {detail or response.reason_phrase}",
+            request=response.request,
+            response=response,
+        )
+
+    @staticmethod
     def _send_via_smtp(message: EmailMessage) -> None:
         if not settings.smtp_host or not settings.smtp_user or not settings.smtp_password:
             raise ValueError("SMTP is not configured. Set SMTP_HOST, SMTP_USER and SMTP_PASSWORD.")
@@ -130,6 +172,7 @@ class EmailService:
             headers={
                 "Authorization": f"Bearer {settings.resend_api_key}",
                 "Content-Type": "application/json",
+                "User-Agent": cls.RESEND_USER_AGENT,
             },
             json={
                 "from": f"TechSphere <{settings.resend_from_email}>",
@@ -140,7 +183,7 @@ class EmailService:
             },
             timeout=15,
         )
-        response.raise_for_status()
+        cls._raise_resend_error(response)
 
     def send_otp_email(self, recipient: str, otp_code: str) -> None:
         provider = self._resolve_provider()

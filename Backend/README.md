@@ -57,3 +57,4 @@ Open docs at:
 - To test Redis connectivity separately, run `python redis_connection_check.py`.
 - To test PostgreSQL connectivity separately, run `python db_connection_check.py`.
 - On Render Free web services, outbound SMTP ports `25`, `465`, and `587` are blocked. Use `EMAIL_PROVIDER=auto` or `EMAIL_PROVIDER=resend` with `RESEND_API_KEY` instead of Gmail SMTP for OTP emails.
+- Resend's `onboarding@resend.dev` sender is for testing only and can send only to the email address tied to your Resend account. For actual OTP delivery, verify your own domain in Resend and set `RESEND_FROM_EMAIL` to an address on that domain.

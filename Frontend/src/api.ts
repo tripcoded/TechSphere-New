@@ -1,6 +1,6 @@
 import type { AttendanceItem, EventItem, InvitePreviewItem, TeamItem, TeamJoinRequestItem } from "./types";
 
-const DEFAULT_PROD_API_BASE = "https://techsphere-new.onrender.com";
+const DEFAULT_PROD_API_BASE = "https://tech-sphere-new-e3iu.vercel.app";
 const DEFAULT_DEV_API_BASE = "http://127.0.0.1:8000";
 
 // Vercel won't see local .env files, so production builds should never fall back to localhost.
