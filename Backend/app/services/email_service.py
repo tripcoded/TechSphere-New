@@ -1,5 +1,6 @@
 import smtplib
 from email.message import EmailMessage
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -76,6 +77,22 @@ class EmailService:
         return settings.email_provider
 
     @staticmethod
+    def _resolve_resend_api_url() -> str:
+        raw_url = (settings.resend_api_url or "").strip() or "https://api.resend.com/emails"
+        parsed = urlsplit(raw_url)
+        if not parsed.scheme or not parsed.netloc:
+            raise ValueError(
+                "RESEND_API_URL is invalid. Use the full endpoint, for example "
+                "https://api.resend.com/emails."
+            )
+
+        normalized_path = parsed.path.rstrip("/")
+        if normalized_path in {"", "/"}:
+            normalized_path = "/emails"
+
+        return urlunsplit((parsed.scheme, parsed.netloc, normalized_path, parsed.query, parsed.fragment))
+
+    @staticmethod
     def _send_via_smtp(message: EmailMessage) -> None:
         if not settings.smtp_host or not settings.smtp_user or not settings.smtp_password:
             raise ValueError("SMTP is not configured. Set SMTP_HOST, SMTP_USER and SMTP_PASSWORD.")
@@ -109,7 +126,7 @@ class EmailService:
 
         subject, text_content, html_content = cls._build_otp_content(otp_code)
         response = httpx.post(
-            settings.resend_api_url,
+            cls._resolve_resend_api_url(),
             headers={
                 "Authorization": f"Bearer {settings.resend_api_key}",
                 "Content-Type": "application/json",
