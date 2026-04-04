@@ -1,7 +1,11 @@
 import type { AttendanceItem, EventItem, InvitePreviewItem, TeamItem, TeamJoinRequestItem } from "./types";
 
-// API base URL: use env var, fallback to localhost for local development
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const DEFAULT_PROD_API_BASE = "https://techsphere-new.onrender.com";
+const DEFAULT_DEV_API_BASE = "http://127.0.0.1:8000";
+
+// Vercel won't see local .env files, so production builds should never fall back to localhost.
+const API_BASE = (import.meta.env.VITE_API_BASE?.trim() ||
+  (import.meta.env.PROD ? DEFAULT_PROD_API_BASE : DEFAULT_DEV_API_BASE)).replace(/\/+$/, "");
 
 interface ApiRequestOptions extends RequestInit {
   token?: string;
