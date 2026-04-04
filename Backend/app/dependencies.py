@@ -7,10 +7,12 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .database import get_db
 from .models import User
+from .profile_utils import has_completed_academic_profile
 from .security import decode_access_token
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+ACADEMIC_PROFILE_REQUIRED_DETAIL = "Complete your academic profile to access team and event features."
 
 
 def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
@@ -23,6 +25,15 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+def require_completed_academic_profile(current_user: User = Depends(get_current_user)) -> User:
+    if not has_completed_academic_profile(current_user.profile):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ACADEMIC_PROFILE_REQUIRED_DETAIL,
+        )
+    return current_user
 
 
 def require_admin_api_key(x_api_key: str = Header(default="", alias="X-API-Key")) -> None:

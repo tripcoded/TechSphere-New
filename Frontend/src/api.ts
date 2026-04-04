@@ -1,4 +1,4 @@
-import type { AttendanceItem, EventItem, InvitePreviewItem, TeamItem, TeamJoinRequestItem } from "./types";
+import type { AttendanceItem, EventItem, InvitePreviewItem, MemberProfile, TeamItem, TeamJoinRequestItem } from "./types";
 
 const DEFAULT_PROD_API_BASE = "https://tech-sphere-new-e3iu.vercel.app";
 const DEFAULT_DEV_API_BASE = "http://127.0.0.1:8000";
@@ -227,14 +227,7 @@ export async function verifyAdminApiKey(adminApiKey: string): Promise<boolean> {
   }
 }
 
-export async function getMyProfile(token: string): Promise<{
-  headline: string | null;
-  college: string | null;
-  bio: string | null;
-  skills: string | null;
-  github_url: string | null;
-  linkedin_url: string | null;
-}> {
+export async function getMyProfile(token: string): Promise<MemberProfile> {
   return apiRequest("/profiles/me", {
     method: "GET",
     token,
@@ -243,15 +236,19 @@ export async function getMyProfile(token: string): Promise<{
 
 export async function updateMyProfile(
   payload: {
+    roll_no?: string;
+    branch?: string;
+    year?: number;
     headline?: string;
     college?: string;
     bio?: string;
     skills?: string;
     github_url?: string;
     linkedin_url?: string;
+    portfolio_url?: string;
   },
   token: string
-): Promise<void> {
+): Promise<MemberProfile> {
   return apiRequest("/profiles/me", {
     method: "PUT",
     token,
@@ -287,4 +284,54 @@ export async function updateAdminProfile(
     adminApiKey,
     body: JSON.stringify(payload),
   });
+}
+
+function filenameFromDisposition(disposition: string | null, fallback: string): string {
+  if (!disposition) return fallback;
+  const starMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (starMatch?.[1]) {
+    return decodeURIComponent(starMatch[1]);
+  }
+  const basicMatch = disposition.match(/filename="?([^"]+)"?/i);
+  return basicMatch?.[1] ?? fallback;
+}
+
+function fallbackExportName(eventTitle: string | null | undefined, format: "xlsx" | "pdf"): string {
+  const safeTitle = (eventTitle || "")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${safeTitle || "Event"} participants.${format}`;
+}
+
+export async function downloadEventParticipantsExport(
+  eventId: number,
+  format: "xlsx" | "pdf",
+  adminApiKey: string,
+  eventTitle?: string
+): Promise<string> {
+  const response = await fetch(`${API_BASE}/admin/events/${eventId}/participants/export?format=${format}`, {
+    method: "GET",
+    headers: {
+      "X-API-Key": adminApiKey,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  const blob = await response.blob();
+  const fallbackName = fallbackExportName(eventTitle, format);
+  const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), fallbackName);
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+
+  return filename;
 }

@@ -8,8 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_admin_api_key
+from app.dependencies import get_current_user, require_admin_api_key, require_completed_academic_profile
 from app.models import Event, Team, TeamJoinRequest, TeamJoinRequestStatus, TeamMember, User
+from app.profile_utils import has_completed_academic_profile
 from app.schemas.team import (
     JoinTeamByInviteRequest,
     JoinTeamByInviteResponse,
@@ -69,26 +70,42 @@ def _normalize_invite_token(value: str) -> str:
 def _team_query():
     return select(Team).options(
         selectinload(Team.event),
-        selectinload(Team.leader),
-        selectinload(Team.members).selectinload(TeamMember.user),
+        selectinload(Team.leader).selectinload(User.profile),
+        selectinload(Team.members).selectinload(TeamMember.user).selectinload(User.profile),
         selectinload(Team.join_requests).selectinload(TeamJoinRequest.user),
     )
 
 
 def _team_member_response_from_membership(membership: TeamMember) -> TeamMemberResponse:
+    profile = membership.user.profile
     return TeamMemberResponse(
         id=membership.user.id,
         email=membership.user.email,
         full_name=membership.user.full_name,
+        roll_no=profile.roll_no if profile else None,
+        branch=profile.branch if profile else None,
+        year=profile.year if profile else None,
+        academic_profile_completed=has_completed_academic_profile(profile),
+        github_url=profile.github_url if profile else None,
+        linkedin_url=profile.linkedin_url if profile else None,
+        portfolio_url=profile.portfolio_url if profile else None,
         joined_at=membership.joined_at,
     )
 
 
 def _team_member_response_from_user(user: User) -> TeamMemberResponse:
+    profile = user.profile
     return TeamMemberResponse(
         id=user.id,
         email=user.email,
         full_name=user.full_name,
+        roll_no=profile.roll_no if profile else None,
+        branch=profile.branch if profile else None,
+        year=profile.year if profile else None,
+        academic_profile_completed=has_completed_academic_profile(profile),
+        github_url=profile.github_url if profile else None,
+        linkedin_url=profile.linkedin_url if profile else None,
+        portfolio_url=profile.portfolio_url if profile else None,
         joined_at=None,
     )
 
@@ -139,7 +156,11 @@ def _get_invite_record(token: str) -> TeamInviteRecord:
 
 
 @router.post("", response_model=TeamResponse, status_code=status.HTTP_201_CREATED)
-def create_team(payload: TeamCreateRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def create_team(
+    payload: TeamCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_completed_academic_profile),
+):
     event = db.get(Event, payload.event_id)
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
@@ -180,7 +201,11 @@ def create_team(payload: TeamCreateRequest, db: Session = Depends(get_db), curre
 
 
 @router.post("/{team_id}/invite", response_model=TeamInviteCreateResponse)
-def create_team_invite(team_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def create_team_invite(
+    team_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_completed_academic_profile),
+):
     team = db.scalar(select(Team).where(Team.id == team_id))
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
@@ -227,7 +252,7 @@ def get_team_invite_preview(invite_token: str, db: Session = Depends(get_db)):
 def join_team_by_invite(
     payload: JoinTeamByInviteRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_completed_academic_profile),
 ):
     token = _normalize_invite_token(payload.invite_token)
     record = _get_invite_record(token)
@@ -283,13 +308,16 @@ def join_team_by_invite(
 
 
 @router.get("/leader/requests", response_model=list[TeamJoinRequestResponse])
-def get_leader_join_requests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_leader_join_requests(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_completed_academic_profile),
+):
     join_requests = db.scalars(
         select(TeamJoinRequest)
         .join(Team, Team.id == TeamJoinRequest.team_id)
         .where(Team.leader_id == current_user.id, TeamJoinRequest.status == TeamJoinRequestStatus.pending)
         .options(
-            selectinload(TeamJoinRequest.user),
+            selectinload(TeamJoinRequest.user).selectinload(User.profile),
             selectinload(TeamJoinRequest.team).selectinload(Team.event),
         )
         .order_by(TeamJoinRequest.requested_at.desc())
@@ -303,7 +331,7 @@ def _get_leader_request_or_404(db: Session, request_id: int, current_user: User)
         .join(Team, Team.id == TeamJoinRequest.team_id)
         .where(TeamJoinRequest.id == request_id, Team.leader_id == current_user.id)
         .options(
-            selectinload(TeamJoinRequest.user),
+            selectinload(TeamJoinRequest.user).selectinload(User.profile),
             selectinload(TeamJoinRequest.team).selectinload(Team.event),
         )
     )
@@ -313,7 +341,11 @@ def _get_leader_request_or_404(db: Session, request_id: int, current_user: User)
 
 
 @router.post("/requests/{request_id}/approve", response_model=TeamJoinRequestDecisionResponse)
-def approve_join_request(request_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def approve_join_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_completed_academic_profile),
+):
     join_request = _get_leader_request_or_404(db, request_id, current_user)
     if join_request.status != TeamJoinRequestStatus.pending:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This request is no longer pending")
@@ -346,7 +378,11 @@ def approve_join_request(request_id: int, db: Session = Depends(get_db), current
 
 
 @router.post("/requests/{request_id}/reject", response_model=TeamJoinRequestDecisionResponse)
-def reject_join_request(request_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def reject_join_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_completed_academic_profile),
+):
     join_request = _get_leader_request_or_404(db, request_id, current_user)
     if join_request.status != TeamJoinRequestStatus.pending:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This request is no longer pending")
@@ -363,7 +399,10 @@ def reject_join_request(request_id: int, db: Session = Depends(get_db), current_
 
 
 @router.get("/my", response_model=list[TeamResponse])
-def my_teams(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def my_teams(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_completed_academic_profile),
+):
     teams = db.scalars(
         _team_query()
         .join(TeamMember, TeamMember.team_id == Team.id)

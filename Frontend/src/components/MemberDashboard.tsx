@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useState } from "react";
 
-import { EventItem, MemberProfile, TeamItem, TeamJoinRequestItem, TeamMember } from "../types";
+import { ACADEMIC_BRANCH_OPTIONS, AcademicBranch, EventItem, MemberProfile, TeamItem, TeamJoinRequestItem, TeamMember } from "../types";
 
 interface MemberDashboardProps {
   email: string;
   busy: boolean;
+  academicProfileLocked: boolean;
   tab: "dashboard" | "register-event" | "registered-events" | "profile";
   events: EventItem[];
   teams: TeamItem[];
@@ -45,6 +46,7 @@ export function MemberDashboard(props: MemberDashboardProps) {
   const {
     email,
     busy,
+    academicProfileLocked,
     tab,
     events,
     teams,
@@ -70,12 +72,13 @@ export function MemberDashboard(props: MemberDashboardProps) {
   } = props;
 
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  const effectiveTab = academicProfileLocked ? "profile" : tab;
 
   useEffect(() => {
-    if (tab !== "registered-events") {
+    if (effectiveTab !== "registered-events") {
       setSelectedTeamId(null);
     }
-  }, [tab]);
+  }, [effectiveTab]);
 
   useEffect(() => {
     if (selectedTeamId === null) return;
@@ -94,10 +97,19 @@ export function MemberDashboard(props: MemberDashboardProps) {
   return (
     <section className="dashboard">
       <div className="content">
-        {tab === "dashboard" && (
+        {effectiveTab === "dashboard" && (
           <article className="card">
             <h2>Member Dashboard</h2>
-            <p className="muted workspace-identity">{email}</p>
+            <div className="member-identity-card">
+              <div>
+                <span>Member Name</span>
+                <strong>{profile.full_name?.trim() || "Name not provided during signup"}</strong>
+              </div>
+              <div>
+                <span>Email ID</span>
+                <strong>{profile.email || email}</strong>
+              </div>
+            </div>
             <div className="stats">
               <div>
                 <span>Total Events</span>
@@ -138,7 +150,7 @@ export function MemberDashboard(props: MemberDashboardProps) {
           </article>
         )}
 
-        {tab === "register-event" && (
+        {effectiveTab === "register-event" && (
           <article className="card">
             <h2>Register Event</h2>
             <p className="muted">Registering a team makes you the team leader and unlocks invite sharing plus join-request approvals.</p>
@@ -165,7 +177,7 @@ export function MemberDashboard(props: MemberDashboardProps) {
           </article>
         )}
 
-        {tab === "registered-events" && (
+        {effectiveTab === "registered-events" && (
           <article className="card">
             <div className="registered-team-head">
               <div>
@@ -332,59 +344,127 @@ export function MemberDashboard(props: MemberDashboardProps) {
           </article>
         )}
 
-        {tab === "profile" && (
+        {effectiveTab === "profile" && (
           <article className="card">
-            <h2>Member Profile</h2>
+            <div className="profile-form-head">
+              <div>
+                <h2>Member Profile</h2>
+                <p className="muted">
+                  Academic Profile is required before event registration, team creation, invite joining, and leader actions unlock.
+                </p>
+              </div>
+              <span className={academicProfileLocked ? "role-pill" : "team-count-badge"}>
+                {academicProfileLocked ? "Required" : "Unlocked"}
+              </span>
+            </div>
+
+            {academicProfileLocked && (
+              <div className="profile-lock-banner">
+                Fill your roll number, branch, and year first. Once saved, the rest of the member workspace becomes available.
+              </div>
+            )}
+
             <form className="form" onSubmit={onSaveProfile}>
-              <label>
-                Headline
-                <input
-                  value={profile.headline ?? ""}
-                  onChange={(event) => setProfile({ ...profile, headline: event.target.value })}
-                  type="text"
-                />
-              </label>
-              <label>
-                College / Company
-                <input
-                  value={profile.college ?? ""}
-                  onChange={(event) => setProfile({ ...profile, college: event.target.value })}
-                  type="text"
-                />
-              </label>
-              <label>
-                Skills
-                <input
-                  value={profile.skills ?? ""}
-                  onChange={(event) => setProfile({ ...profile, skills: event.target.value })}
-                  type="text"
-                />
-              </label>
-              <label>
-                Github URL
-                <input
-                  value={profile.github_url ?? ""}
-                  onChange={(event) => setProfile({ ...profile, github_url: event.target.value })}
-                  type="url"
-                />
-              </label>
-              <label>
-                LinkedIn URL
-                <input
-                  value={profile.linkedin_url ?? ""}
-                  onChange={(event) => setProfile({ ...profile, linkedin_url: event.target.value })}
-                  type="url"
-                />
-              </label>
-              <label>
-                About
-                <textarea
-                  value={profile.bio ?? ""}
-                  onChange={(event) => setProfile({ ...profile, bio: event.target.value })}
-                />
-              </label>
+              <div className="profile-stack">
+                <section className="profile-section-card">
+                  <div className="profile-section-head">
+                    <div>
+                      <p className="section-kicker">Academic Profile</p>
+                      <h3>Required For Access</h3>
+                    </div>
+                    <span className="member-pill">Mandatory</span>
+                  </div>
+
+                  <label>
+                    Roll Number
+                    <input
+                      value={profile.roll_no ?? ""}
+                      onChange={(event) => setProfile({ ...profile, roll_no: event.target.value })}
+                      type="text"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Branch
+                    <select
+                      value={profile.branch ?? ""}
+                      onChange={(event) =>
+                        setProfile({
+                          ...profile,
+                          branch: event.target.value ? (event.target.value as AcademicBranch) : null,
+                        })
+                      }
+                      required
+                    >
+                      <option value="">Select branch</option>
+                      {ACADEMIC_BRANCH_OPTIONS.map((branch) => (
+                        <option key={branch} value={branch}>
+                          {branch}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Year
+                    <select
+                      value={profile.year ? String(profile.year) : ""}
+                      onChange={(event) =>
+                        setProfile({
+                          ...profile,
+                          year: event.target.value ? Number(event.target.value) : null,
+                        })
+                      }
+                      required
+                    >
+                      <option value="">Select year</option>
+                      <option value="1">1st Year</option>
+                      <option value="2">2nd Year</option>
+                      <option value="3">3rd Year</option>
+                      <option value="4">4th Year</option>
+                    </select>
+                  </label>
+                </section>
+
+                <section className="profile-section-card">
+                  <div className="profile-section-head">
+                    <div>
+                      <p className="section-kicker">Digital Presence</p>
+                      <h3>Optional Public Links</h3>
+                    </div>
+                    <span className="member-pill">Optional</span>
+                  </div>
+
+                  <label>
+                    GitHub URL
+                    <input
+                      value={profile.github_url ?? ""}
+                      onChange={(event) => setProfile({ ...profile, github_url: event.target.value })}
+                      type="url"
+                      placeholder="https://github.com/username"
+                    />
+                  </label>
+                  <label>
+                    LinkedIn URL
+                    <input
+                      value={profile.linkedin_url ?? ""}
+                      onChange={(event) => setProfile({ ...profile, linkedin_url: event.target.value })}
+                      type="url"
+                      placeholder="https://linkedin.com/in/username"
+                    />
+                  </label>
+                  <label>
+                    Portfolio / Website URL
+                    <input
+                      value={profile.portfolio_url ?? ""}
+                      onChange={(event) => setProfile({ ...profile, portfolio_url: event.target.value })}
+                      type="url"
+                      placeholder="https://your-site.dev"
+                    />
+                  </label>
+                </section>
+              </div>
               <button className="btn-primary" disabled={busy} type="submit">
-                Save Profile
+                {academicProfileLocked ? "Save And Continue" : "Save Profile"}
               </button>
             </form>
           </article>

@@ -29,6 +29,7 @@ interface AdminDashboardProps {
   onCreateEvent: (event: FormEvent) => void;
   onDeleteEvent: (eventId: number) => void;
   onAttendanceToggle: (userId: string, checked: boolean) => void;
+  onExportEvent: (format: "xlsx" | "pdf") => void;
   onSaveProfile: (event: FormEvent) => void;
 }
 
@@ -53,7 +54,13 @@ function teamMatchesSearch(team: TeamItem, search: string) {
     team.name,
     teamLeader(team)?.full_name ?? "",
     teamLeader(team)?.email ?? "",
-    ...team.members.flatMap((member) => [member.full_name ?? "", member.email]),
+    ...team.members.flatMap((member) => [
+      member.full_name ?? "",
+      member.email,
+      member.roll_no ?? "",
+      member.branch ?? "",
+      member.year ? String(member.year) : "",
+    ]),
   ]
     .join(" ")
     .toLowerCase();
@@ -90,6 +97,7 @@ export function AdminDashboard(props: AdminDashboardProps) {
     onCreateEvent,
     onDeleteEvent,
     onAttendanceToggle,
+    onExportEvent,
     onSaveProfile,
   } = props;
 
@@ -148,9 +156,17 @@ export function AdminDashboard(props: AdminDashboardProps) {
                     <h3>{activeEvent.title}</h3>
                     <p className="muted">{eventRange(activeEvent)}</p>
                   </div>
-                  <button className="btn-danger" type="button" onClick={() => onDeleteEvent(activeEvent.id)}>
-                    Delete Event
-                  </button>
+                  <div className="event-admin-actions">
+                    <button className="btn-outline" disabled={busy} type="button" onClick={() => onExportEvent("xlsx")}>
+                      Download Excel
+                    </button>
+                    <button className="btn-outline" disabled={busy} type="button" onClick={() => onExportEvent("pdf")}>
+                      Download PDF
+                    </button>
+                    <button className="btn-danger" type="button" onClick={() => onDeleteEvent(activeEvent.id)}>
+                      Delete Event
+                    </button>
+                  </div>
                 </div>
 
                 <label>
@@ -238,6 +254,31 @@ export function AdminDashboard(props: AdminDashboardProps) {
                                   {isLeader && <span className="role-pill">Leader</span>}
                                 </div>
                                 <small>{member.email}</small>
+                                <div className="participant-meta-grid">
+                                  <span>Roll No: {member.roll_no || "Pending"}</span>
+                                  <span>Branch: {member.branch || "Pending"}</span>
+                                  <span>Year: {member.year ? `${member.year}` : "Pending"}</span>
+                                </div>
+                                <div className="participant-link-row">
+                                  {member.github_url && (
+                                    <a href={member.github_url} target="_blank" rel="noreferrer">
+                                      GitHub
+                                    </a>
+                                  )}
+                                  {member.linkedin_url && (
+                                    <a href={member.linkedin_url} target="_blank" rel="noreferrer">
+                                      LinkedIn
+                                    </a>
+                                  )}
+                                  {member.portfolio_url && (
+                                    <a href={member.portfolio_url} target="_blank" rel="noreferrer">
+                                      Portfolio
+                                    </a>
+                                  )}
+                                  {!member.github_url && !member.linkedin_url && !member.portfolio_url && (
+                                    <span>No digital links added</span>
+                                  )}
+                                </div>
                               </div>
                               <label className={present ? "attendance-switch is-present" : "attendance-switch"}>
                                 <input
@@ -277,11 +318,43 @@ export function AdminDashboard(props: AdminDashboardProps) {
               </label>
               <label>
                 Starts At
-                <input value={eventStart} onChange={(event) => setEventStart(event.target.value)} type="datetime-local" required />
+                <div className="datetime-input-shell">
+                  <input value={eventStart} onChange={(event) => setEventStart(event.target.value)} type="datetime-local" required />
+                  <span className="datetime-input-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 2v4" />
+                      <path d="M16 2v4" />
+                      <rect x="3" y="5" width="18" height="16" rx="2" />
+                      <path d="M3 10h18" />
+                      <path d="M8 14h.01" />
+                      <path d="M12 14h.01" />
+                      <path d="M16 14h.01" />
+                      <path d="M8 18h.01" />
+                      <path d="M12 18h.01" />
+                      <path d="M16 18h.01" />
+                    </svg>
+                  </span>
+                </div>
               </label>
               <label>
                 Ends At
-                <input value={eventEnd} onChange={(event) => setEventEnd(event.target.value)} type="datetime-local" required />
+                <div className="datetime-input-shell">
+                  <input value={eventEnd} onChange={(event) => setEventEnd(event.target.value)} type="datetime-local" required />
+                  <span className="datetime-input-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 2v4" />
+                      <path d="M16 2v4" />
+                      <rect x="3" y="5" width="18" height="16" rx="2" />
+                      <path d="M3 10h18" />
+                      <path d="M8 14h.01" />
+                      <path d="M12 14h.01" />
+                      <path d="M16 14h.01" />
+                      <path d="M8 18h.01" />
+                      <path d="M12 18h.01" />
+                      <path d="M16 18h.01" />
+                    </svg>
+                  </span>
+                </div>
               </label>
               <button className="btn-primary" disabled={busy} type="submit">
                 {busy ? "Saving..." : "Create Event"}

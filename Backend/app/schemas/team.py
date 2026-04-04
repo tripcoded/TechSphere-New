@@ -15,6 +15,13 @@ class TeamMemberResponse(BaseModel):
     id: str
     email: EmailStr
     full_name: str | None
+    roll_no: str | None = None
+    branch: str | None = None
+    year: int | None = Field(default=None, ge=1, le=4)
+    academic_profile_completed: bool = False
+    github_url: str | None = None
+    linkedin_url: str | None = None
+    portfolio_url: str | None = None
     joined_at: datetime | None = None
 
 

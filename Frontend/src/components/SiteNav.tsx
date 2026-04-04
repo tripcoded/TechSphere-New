@@ -5,6 +5,8 @@ interface SiteNavItem {
   key: string;
   label: string;
   active?: boolean;
+  disabled?: boolean;
+  title?: string;
   onClick: () => void;
 }
 
@@ -47,8 +49,10 @@ export function SiteNav({ items, subtitle = "IET On Campus", onBrandClick, onLog
           {items.map((item) => (
             <button
               key={item.key}
-              className={item.active ? "nav-link active" : "nav-link"}
+              className={item.active ? "nav-link active" : item.disabled ? "nav-link disabled" : "nav-link"}
               type="button"
+              aria-disabled={item.disabled ? "true" : undefined}
+              title={item.title}
               onClick={() => navClick(item.onClick)}
             >
               {item.label}

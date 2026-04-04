@@ -1,4 +1,16 @@
 export type SessionMode = "real" | "demo";
+export type AcademicBranch =
+  | "Information Technology"
+  | "Computer Science and Engineering"
+  | "Mechanical Engineering"
+  | "Electrical Engineering";
+
+export const ACADEMIC_BRANCH_OPTIONS: AcademicBranch[] = [
+  "Information Technology",
+  "Computer Science and Engineering",
+  "Mechanical Engineering",
+  "Electrical Engineering",
+];
 
 export interface EventItem {
   id: number;
@@ -14,6 +26,13 @@ export interface TeamMember {
   id: string;
   email: string;
   full_name: string | null;
+  roll_no?: string | null;
+  branch?: AcademicBranch | null;
+  year?: number | null;
+  academic_profile_completed?: boolean;
+  github_url?: string | null;
+  linkedin_url?: string | null;
+  portfolio_url?: string | null;
   joined_at?: string | null;
 }
 
@@ -61,12 +80,19 @@ export interface AttendanceItem {
 }
 
 export interface MemberProfile {
+  full_name: string | null;
+  email: string;
+  roll_no: string | null;
+  branch: AcademicBranch | null;
+  year: number | null;
   headline: string | null;
   college: string | null;
   bio: string | null;
   skills: string | null;
   github_url: string | null;
   linkedin_url: string | null;
+  portfolio_url: string | null;
+  academic_profile_completed: boolean;
 }
 
 export interface AdminProfile {

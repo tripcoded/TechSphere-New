@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine
 from app import models  # noqa: F401
+from app.schema_bootstrap import ensure_runtime_schema
 from app.routers.attendance import router as attendance_router
 from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
@@ -19,12 +20,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_runtime_schema(engine)
 
 
 @app.get("/health")

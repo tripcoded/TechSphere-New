@@ -8,6 +8,7 @@ from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, ForeignKey, Integer, 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
+from .profile_utils import has_completed_academic_profile
 
 
 def utcnow() -> datetime:
@@ -136,15 +137,31 @@ class UserProfile(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    roll_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    branch: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     headline: Mapped[str | None] = mapped_column(String(160), nullable=True)
     college: Mapped[str | None] = mapped_column(String(180), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     skills: Mapped[str | None] = mapped_column(Text, nullable=True)
     github_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     linkedin_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    portfolio_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
     user: Mapped[User] = relationship("User", back_populates="profile")
+
+    @property
+    def academic_profile_completed(self) -> bool:
+        return has_completed_academic_profile(self)
+
+    @property
+    def full_name(self) -> str | None:
+        return self.user.full_name if self.user else None
+
+    @property
+    def email(self) -> str:
+        return self.user.email if self.user else ""
 
 
 class AdminProfile(Base):

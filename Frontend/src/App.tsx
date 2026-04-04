@@ -6,6 +6,7 @@ import {
   createTeam,
   createTeamInvite,
   deleteEvent,
+  downloadEventParticipantsExport,
   getAdminProfile,
   getAttendanceByEvent,
   getEvents,
@@ -200,12 +201,19 @@ export default function App() {
   const [teamSearch, setTeamSearch] = useState("");
 
   const [memberProfile, setMemberProfile] = useState<MemberProfile>({
+    full_name: "",
+    email: "",
+    roll_no: "",
+    branch: null,
+    year: null,
     headline: "",
     college: "",
     bio: "",
     skills: "",
     github_url: "",
     linkedin_url: "",
+    portfolio_url: "",
+    academic_profile_completed: false,
   });
   const [adminProfile, setAdminProfile] = useState<AdminProfile>({
     full_name: "",
@@ -218,6 +226,7 @@ export default function App() {
   const heading = pageHeading(screen);
   const showShellHeader = screen !== "home";
   const canUseNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const academicProfileLocked = Boolean(memberSession && !memberProfile.academic_profile_completed);
 
   useEffect(() => {
     if (memberSession) localStorage.setItem(MEMBER_SESSION_KEY, JSON.stringify(memberSession));
@@ -274,6 +283,11 @@ export default function App() {
     void loadAdminEventDetails(adminSession, selectedEventId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminSession?.apiKey, adminSession?.mode, selectedEventId, screen]);
+
+  useEffect(() => {
+    if (!memberSession || !academicProfileLocked || memberTab === "profile") return;
+    setMemberTab("profile");
+  }, [academicProfileLocked, memberSession, memberTab]);
 
   function setInviteRouteToken(token: string | null) {
     const url = new URL(window.location.href);
@@ -334,7 +348,10 @@ export default function App() {
       setMemberTeams(teamItems);
       setLeaderRequests(joinRequests);
       setMemberProfile(profile);
-      setNotice("Member dashboard loaded.");
+      if (!profile.academic_profile_completed) {
+        setMemberTab("profile");
+        setNotice("Complete your academic profile to unlock event features.");
+      }
     } catch (error) {
       setNotice(`Failed to load member data: ${(error as Error).message}`);
     } finally {
@@ -516,6 +533,7 @@ export default function App() {
   async function onRegisterTeam(event: FormEvent) {
     event.preventDefault();
     if (!memberSession) return;
+    if (!ensureAcademicProfileAccess("Complete your academic profile before registering an event team.")) return;
     const parsedEventId = Number(teamEventId);
     if (!parsedEventId || !teamName.trim()) {
       setNotice("Select an event and enter team name.");
@@ -642,6 +660,9 @@ export default function App() {
     const existing = inviteLinks[teamId];
     if (existing) return existing;
     if (!memberSession) throw new Error("Login as a member first.");
+    if (!ensureAcademicProfileAccess("Complete your academic profile before sharing team invites.")) {
+      throw new Error("Academic profile is incomplete.");
+    }
 
     // DEMO/DEVELOPMENT - Commented out for production
     // if (memberSession.mode === "demo") {
@@ -657,6 +678,7 @@ export default function App() {
   }
 
   async function onCopyInviteLink(teamId: number) {
+    if (!ensureAcademicProfileAccess("Complete your academic profile before sharing team invites.")) return;
     setBusy(true);
     try {
       const link = await ensureInviteLink(teamId);
@@ -674,6 +696,7 @@ export default function App() {
   }
 
   async function onShareInviteWhatsApp(teamId: number) {
+    if (!ensureAcademicProfileAccess("Complete your academic profile before sharing team invites.")) return;
     setBusy(true);
     try {
       const link = await ensureInviteLink(teamId);
@@ -689,6 +712,7 @@ export default function App() {
   }
 
   async function onNativeShareInvite(teamId: number) {
+    if (!ensureAcademicProfileAccess("Complete your academic profile before sharing team invites.")) return;
     setBusy(true);
     try {
       const link = await ensureInviteLink(teamId);
@@ -713,6 +737,7 @@ export default function App() {
 
   async function onJoinInvite(rawValue?: string) {
     if (!memberSession) return;
+    if (!ensureAcademicProfileAccess("Complete your academic profile before joining a team.")) return;
     const token = normalizeInviteToken(rawValue ?? inviteTokenInput);
     if (!token) {
       setNotice("Paste invite link or token first.");
@@ -745,6 +770,7 @@ export default function App() {
 
   async function onApproveJoinRequest(requestId: number) {
     if (!memberSession) return;
+    if (!ensureAcademicProfileAccess("Complete your academic profile before managing join requests.")) return;
     setBusy(true);
     try {
       // DEMO/DEVELOPMENT - Commented out for production
@@ -775,6 +801,7 @@ export default function App() {
 
   async function onRejectJoinRequest(requestId: number) {
     if (!memberSession) return;
+    if (!ensureAcademicProfileAccess("Complete your academic profile before managing join requests.")) return;
     setBusy(true);
     try {
       // DEMO/DEVELOPMENT - Commented out for production
@@ -831,23 +858,60 @@ export default function App() {
       //   setNotice("Demo profile saved.");
       //   return;
       // }
-      await updateMyProfile(
+      const updatedProfile = await updateMyProfile(
         {
-          headline: memberProfile.headline || "",
-          college: memberProfile.college || "",
-          bio: memberProfile.bio || "",
-          skills: memberProfile.skills || "",
-          github_url: memberProfile.github_url || "",
-          linkedin_url: memberProfile.linkedin_url || "",
+          roll_no: memberProfile.roll_no || undefined,
+          branch: memberProfile.branch || undefined,
+          year: memberProfile.year ?? undefined,
+          headline: memberProfile.headline || undefined,
+          college: memberProfile.college || undefined,
+          bio: memberProfile.bio || undefined,
+          skills: memberProfile.skills || undefined,
+          github_url: memberProfile.github_url || undefined,
+          linkedin_url: memberProfile.linkedin_url || undefined,
+          portfolio_url: memberProfile.portfolio_url || undefined,
         },
         memberSession.token
       );
-      setNotice("Profile updated.");
+      setMemberProfile(updatedProfile);
+      if (updatedProfile.academic_profile_completed) {
+        if (activeInviteToken) {
+          setScreen("invite-preview");
+          setNotice("Academic profile saved. You can now continue with the invite.");
+        } else {
+          setMemberTab("dashboard");
+          setNotice("Academic profile saved. Event features are now unlocked.");
+        }
+      } else {
+        setNotice("Profile updated.");
+      }
     } catch (error) {
       setNotice(`Profile update failed: ${(error as Error).message}`);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function onExportEvent(format: "xlsx" | "pdf") {
+    if (!adminSession || selectedEventId === null) return;
+    setBusy(true);
+    try {
+      const activeEventTitle = events.find((event) => event.id === selectedEventId)?.title;
+      const filename = await downloadEventParticipantsExport(selectedEventId, format, adminSession.apiKey, activeEventTitle);
+      setNotice(`${format === "xlsx" ? "Excel" : "PDF"} export downloaded: ${filename}`);
+    } catch (error) {
+      setNotice(`Export failed: ${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function ensureAcademicProfileAccess(message: string): boolean {
+    if (!academicProfileLocked) return true;
+    setScreen("member-dashboard");
+    setMemberTab("profile");
+    setNotice(message);
+    return false;
   }
 
   async function onSaveAdminProfile(event: FormEvent) {
@@ -911,20 +975,40 @@ export default function App() {
   const navItems =
     screen === "member-dashboard"
       ? [
-          { key: "dashboard", label: "Dashboard", active: memberTab === "dashboard", onClick: () => setMemberTab("dashboard") },
+          {
+            key: "dashboard",
+            label: "Dashboard",
+            active: !academicProfileLocked && memberTab === "dashboard",
+            disabled: academicProfileLocked,
+            title: academicProfileLocked ? "Complete your academic profile first" : undefined,
+            onClick: () =>
+              academicProfileLocked
+                ? ensureAcademicProfileAccess("Complete your academic profile before opening the dashboard.")
+                : setMemberTab("dashboard"),
+          },
           {
             key: "register-event",
             label: "Event Registration",
-            active: memberTab === "register-event",
-            onClick: () => setMemberTab("register-event"),
+            active: !academicProfileLocked && memberTab === "register-event",
+            disabled: academicProfileLocked,
+            title: academicProfileLocked ? "Complete your academic profile first" : undefined,
+            onClick: () =>
+              academicProfileLocked
+                ? ensureAcademicProfileAccess("Complete your academic profile before registering for events.")
+                : setMemberTab("register-event"),
           },
           {
             key: "registered-events",
             label: "Registered Teams",
-            active: memberTab === "registered-events",
-            onClick: () => setMemberTab("registered-events"),
+            active: !academicProfileLocked && memberTab === "registered-events",
+            disabled: academicProfileLocked,
+            title: academicProfileLocked ? "Complete your academic profile first" : undefined,
+            onClick: () =>
+              academicProfileLocked
+                ? ensureAcademicProfileAccess("Complete your academic profile before opening registered teams.")
+                : setMemberTab("registered-events"),
           },
-          { key: "profile", label: "Profile", active: memberTab === "profile", onClick: () => setMemberTab("profile") },
+          { key: "profile", label: "Profile", active: memberTab === "profile" || academicProfileLocked, onClick: () => setMemberTab("profile") },
         ]
       : screen === "admin-dashboard"
         ? [
@@ -1066,6 +1150,7 @@ export default function App() {
             <MemberDashboard
               email={memberSession.email}
               busy={busy}
+              academicProfileLocked={academicProfileLocked}
               tab={memberTab}
               events={events}
               teams={memberTeams}
@@ -1133,6 +1218,9 @@ export default function App() {
               }}
               onAttendanceToggle={(userId, checked) => {
                 void onAttendanceToggle(userId, checked);
+              }}
+              onExportEvent={(format) => {
+                void onExportEvent(format);
               }}
               onSaveProfile={onSaveAdminProfile}
             />
