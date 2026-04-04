@@ -1,6 +1,7 @@
 import type { AttendanceItem, EventItem, InvitePreviewItem, TeamItem, TeamJoinRequestItem } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
+// API base URL: use env var, fallback to localhost for local development
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
 interface ApiRequestOptions extends RequestInit {
   token?: string;

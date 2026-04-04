@@ -127,29 +127,31 @@ function normalizeInviteToken(input: string): string {
 }
 
 function buildDemoInvitePreview(token: string): InvitePreviewItem | null {
-  if (!token.startsWith("DEMO-")) return null;
-  const teamId = Number(token.replace("DEMO-", ""));
-  if (!teamId) return null;
+  // DEMO/DEVELOPMENT - Commented out for production
+  return null;
+  // if (!token.startsWith("DEMO-")) return null;
+  // const teamId = Number(token.replace("DEMO-", ""));
+  // if (!teamId) return null;
 
-  const team = DUMMY_TEAMS.find((item) => item.id === teamId);
-  if (!team) return null;
+  // const team = DUMMY_TEAMS.find((item) => item.id === teamId);
+  // if (!team) return null;
 
-  const event = DUMMY_EVENTS.find((item) => item.id === team.event_id);
-  if (!event) return null;
+  // const event = DUMMY_EVENTS.find((item) => item.id === team.event_id);
+  // if (!event) return null;
 
-  return {
-    invite_token: token,
-    expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-    event: {
-      id: event.id,
-      title: event.title,
-      description: event.description,
-      location: event.location,
-      starts_at: event.starts_at,
-      ends_at: event.ends_at,
-    },
-    team,
-  };
+  // return {
+  //   invite_token: token,
+  //   expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+  //   event: {
+  //     id: event.id,
+  //     title: event.title,
+  //     description: event.description,
+  //     location: event.location,
+  //     starts_at: event.starts_at,
+  //     ends_at: event.ends_at,
+  //   },
+  //   team,
+  // };
 }
 
 export default function App() {
@@ -305,22 +307,23 @@ export default function App() {
   async function loadMemberData(session: MemberSession) {
     setBusy(true);
     try {
-      if (session.mode === "demo") {
-        const demoTeams = DUMMY_TEAMS.filter((team) => team.members.some((m) => m.email === DUMMY_MEMBER_CREDENTIALS.email));
-        setEvents(DUMMY_EVENTS);
-        setMemberTeams(demoTeams);
-        setLeaderRequests(DUMMY_JOIN_REQUESTS.filter((request) => demoTeams.some((team) => team.id === request.team_id)));
-        setMemberProfile({
-          headline: "Demo Builder",
-          college: "TechSphere University",
-          bio: "Demo member profile for UI testing.",
-          skills: "React, FastAPI, UI Design",
-          github_url: "https://github.com/demo",
-          linkedin_url: "https://linkedin.com/in/demo",
-        });
-        setNotice("Member dashboard loaded in demo mode.");
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (session.mode === "demo") {
+      //   const demoTeams = DUMMY_TEAMS.filter((team) => team.members.some((m) => m.email === DUMMY_MEMBER_CREDENTIALS.email));
+      //   setEvents(DUMMY_EVENTS);
+      //   setMemberTeams(demoTeams);
+      //   setLeaderRequests(DUMMY_JOIN_REQUESTS.filter((request) => demoTeams.some((team) => team.id === request.team_id)));
+      //   setMemberProfile({
+      //     headline: "Demo Builder",
+      //     college: "TechSphere University",
+      //     bio: "Demo member profile for UI testing.",
+      //     skills: "React, FastAPI, UI Design",
+      //     github_url: "https://github.com/demo",
+      //     linkedin_url: "https://linkedin.com/in/demo",
+      //   });
+      //   setNotice("Member dashboard loaded in demo mode.");
+      //   return;
+      // }
       const [eventItems, teamItems, joinRequests, profile] = await Promise.all([
         getEvents(),
         getMyTeams(session.token),
@@ -342,19 +345,20 @@ export default function App() {
   async function loadAdminBase(session: AdminSession) {
     setBusy(true);
     try {
-      if (session.mode === "demo") {
-        setEvents(DUMMY_EVENTS);
-        setAdminProfile({
-          full_name: "Demo Admin",
-          designation: "Event Coordinator",
-          organization: "TechSphere",
-          contact_email: "admin@techsphere.dev",
-          bio: "Demo admin profile for local testing.",
-        });
-        setSelectedEventId(DUMMY_EVENTS[0]?.id ?? null);
-        setNotice("Admin dashboard loaded in demo mode.");
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (session.mode === "demo") {
+      //   setEvents(DUMMY_EVENTS);
+      //   setAdminProfile({
+      //     full_name: "Demo Admin",
+      //     designation: "Event Coordinator",
+      //     organization: "TechSphere",
+      //     contact_email: "admin@techsphere.dev",
+      //     bio: "Demo admin profile for local testing.",
+      //   });
+      //   setSelectedEventId(DUMMY_EVENTS[0]?.id ?? null);
+      //   setNotice("Admin dashboard loaded in demo mode.");
+      //   return;
+      // }
       const [eventItems, profile] = await Promise.all([getEvents(), getAdminProfile(session.apiKey)]);
       setEvents(eventItems);
       setAdminProfile(profile);
@@ -370,11 +374,12 @@ export default function App() {
   async function loadAdminEventDetails(session: AdminSession, eventId: number) {
     setBusy(true);
     try {
-      if (session.mode === "demo") {
-        setAdminTeams(DUMMY_TEAMS.filter((team) => team.event_id === eventId));
-        setAttendanceMap({});
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (session.mode === "demo") {
+      //   setAdminTeams(DUMMY_TEAMS.filter((team) => team.event_id === eventId));
+      //   setAttendanceMap({});
+      //   return;
+      // }
       const [teams, attendance] = await Promise.all([
         getTeamsByEvent(eventId, session.apiKey),
         getAttendanceByEvent(eventId, session.apiKey),
@@ -396,17 +401,18 @@ export default function App() {
     event.preventDefault();
     setBusy(true);
     try {
-      if (
-        loginEmail.trim().toLowerCase() === DUMMY_MEMBER_CREDENTIALS.email &&
-        loginPassword === DUMMY_MEMBER_CREDENTIALS.password
-      ) {
-        const session: MemberSession = { email: DUMMY_MEMBER_CREDENTIALS.email, token: "demo-member", mode: "demo" };
-        setMemberSession(session);
-        setAdminSession(null);
-        setScreen(activeInviteToken ? "invite-preview" : "member-dashboard");
-        await loadMemberData(session);
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (
+      //   loginEmail.trim().toLowerCase() === DUMMY_MEMBER_CREDENTIALS.email &&
+      //   loginPassword === DUMMY_MEMBER_CREDENTIALS.password
+      // ) {
+      //   const session: MemberSession = { email: DUMMY_MEMBER_CREDENTIALS.email, token: "demo-member", mode: "demo" };
+      //   setMemberSession(session);
+      //   setAdminSession(null);
+      //   setScreen(activeInviteToken ? "invite-preview" : "member-dashboard");
+      //   await loadMemberData(session);
+      //   return;
+      // }
       const response = await login(loginEmail.trim(), loginPassword);
       const session: MemberSession = { email: loginEmail.trim().toLowerCase(), token: response.access_token, mode: "real" };
       setMemberSession(session);
@@ -481,14 +487,15 @@ export default function App() {
     if (!key) return;
     setBusy(true);
     try {
-      if (key === DUMMY_ADMIN_CREDENTIALS.apiKey) {
-        const session: AdminSession = { apiKey: key, mode: "demo" };
-        setAdminSession(session);
-        setMemberSession(null);
-        setScreen("admin-dashboard");
-        await loadAdminBase(session);
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (key === DUMMY_ADMIN_CREDENTIALS.apiKey) {
+      //   const session: AdminSession = { apiKey: key, mode: "demo" };
+      //   setAdminSession(session);
+      //   setMemberSession(null);
+      //   setScreen("admin-dashboard");
+      //   await loadAdminBase(session);
+      //   return;
+      // }
       const valid = await verifyAdminApiKey(key);
       if (!valid) {
         setNotice("Invalid admin API key.");
@@ -516,22 +523,25 @@ export default function App() {
     }
     setBusy(true);
     try {
-      if (memberSession.mode === "demo") {
-        const leader = { id: "demo", email: memberSession.email, full_name: "Demo Member" };
-        const team: TeamItem = {
-          id: Date.now(),
-          name: teamName.trim(),
-          event_id: parsedEventId,
-          leader_id: "demo",
-          created_at: new Date().toISOString(),
-          leader,
-          members: [leader],
-        };
-        setMemberTeams((previous) => [team, ...previous]);
-      } else {
-        const response = await createTeam({ name: teamName.trim(), event_id: parsedEventId, member_ids: [] }, memberSession.token);
-        setMemberTeams((previous) => [response, ...previous]);
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (memberSession.mode === "demo") {
+      //   const leader = { id: "demo", email: memberSession.email, full_name: "Demo Member" };
+      //   const team: TeamItem = {
+      //     id: Date.now(),
+      //     name: teamName.trim(),
+      //     event_id: parsedEventId,
+      //     leader_id: "demo",
+      //     created_at: new Date().toISOString(),
+      //     leader,
+      //     members: [leader],
+      //   };
+      //   setMemberTeams((previous) => [team, ...previous]);
+      // } else {
+      //   const response = await createTeam({ name: teamName.trim(), event_id: parsedEventId, member_ids: [] }, memberSession.token);
+      //   setMemberTeams((previous) => [response, ...previous]);
+      // }
+      const response = await createTeam({ name: teamName.trim(), event_id: parsedEventId, member_ids: [] }, memberSession.token);
+      setMemberTeams((previous) => [response, ...previous]);
       setNotice("Team registration saved.");
       setTeamEventId("");
       setTeamName("");
@@ -562,30 +572,42 @@ export default function App() {
     }
     setBusy(true);
     try {
-      if (adminSession.mode === "demo") {
-        const demo: EventItem = {
-          id: Date.now(),
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (adminSession.mode === "demo") {
+      //   const demo: EventItem = {
+      //     id: Date.now(),
+      //     title: eventTitle,
+      //     description: eventDescription || null,
+      //     location: eventLocation || null,
+      //     starts_at: startsAt.toISOString(),
+      //     ends_at: endsAt.toISOString(),
+      //     created_at: new Date().toISOString(),
+      //   };
+      //   setEvents((previous) => [demo, ...previous]);
+      // } else {
+      //   const response = await createEvent(
+      //     {
+      //       title: eventTitle,
+      //       description: eventDescription || undefined,
+      //       location: eventLocation || undefined,
+      //       starts_at: startsAt.toISOString(),
+      //       ends_at: endsAt.toISOString(),
+      //     },
+      //     adminSession.apiKey
+      //   );
+      //   setEvents((previous) => [response, ...previous]);
+      // }
+      const response = await createEvent(
+        {
           title: eventTitle,
-          description: eventDescription || null,
-          location: eventLocation || null,
+          description: eventDescription || undefined,
+          location: eventLocation || undefined,
           starts_at: startsAt.toISOString(),
           ends_at: endsAt.toISOString(),
-          created_at: new Date().toISOString(),
-        };
-        setEvents((previous) => [demo, ...previous]);
-      } else {
-        const response = await createEvent(
-          {
-            title: eventTitle,
-            description: eventDescription || undefined,
-            location: eventLocation || undefined,
-            starts_at: startsAt.toISOString(),
-            ends_at: endsAt.toISOString(),
-          },
-          adminSession.apiKey
-        );
-        setEvents((previous) => [response, ...previous]);
-      }
+        },
+        adminSession.apiKey
+      );
+      setEvents((previous) => [response, ...previous]);
       setNotice("Event created.");
       setAdminTab("current-events");
       setEventTitle("");
@@ -621,11 +643,12 @@ export default function App() {
     if (existing) return existing;
     if (!memberSession) throw new Error("Login as a member first.");
 
-    if (memberSession.mode === "demo") {
-      const demoLink = `${window.location.origin}/?invite=DEMO-${teamId}`;
-      setInviteLinks((prev) => ({ ...prev, [teamId]: demoLink }));
-      return demoLink;
-    }
+    // DEMO/DEVELOPMENT - Commented out for production
+    // if (memberSession.mode === "demo") {
+    //   const demoLink = `${window.location.origin}/?invite=DEMO-${teamId}`;
+    //   setInviteLinks((prev) => ({ ...prev, [teamId]: demoLink }));
+    //   return demoLink;
+    // }
 
     const response = await createTeamInvite(teamId, memberSession.token);
     const link = `${window.location.origin}/?invite=${response.invite_token}`;
@@ -700,11 +723,12 @@ export default function App() {
       if (token !== inviteTokenInput.trim()) {
         setInviteTokenInput(token);
       }
-      if (memberSession.mode === "demo") {
-        setNotice("Demo mode: join request sent to the team leader.");
-        setInviteTokenInput("");
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (memberSession.mode === "demo") {
+      //   setNotice("Demo mode: join request sent to the team leader.");
+      //   setInviteTokenInput("");
+      //   return;
+      // }
       const response = await joinTeamByInvite(token, memberSession.token);
       setNotice(response.message);
       setInviteTokenInput("");
@@ -723,21 +747,22 @@ export default function App() {
     if (!memberSession) return;
     setBusy(true);
     try {
-      if (memberSession.mode === "demo") {
-        const request = leaderRequests.find((item) => item.id === requestId);
-        if (request) {
-          setMemberTeams((previous) =>
-            previous.map((team) =>
-              team.id === request.team_id
-                ? { ...team, members: [...team.members, request.requester] }
-                : team
-            )
-          );
-          setLeaderRequests((previous) => previous.filter((item) => item.id !== requestId));
-        }
-        setNotice("Join request approved.");
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (memberSession.mode === "demo") {
+      //   const request = leaderRequests.find((item) => item.id === requestId);
+      //   if (request) {
+      //     setMemberTeams((previous) =>
+      //       previous.map((team) =>
+      //         team.id === request.team_id
+      //           ? { ...team, members: [...team.members, request.requester] }
+      //           : team
+      //       )
+      //     );
+      //     setLeaderRequests((previous) => previous.filter((item) => item.id !== requestId));
+      //   }
+      //   setNotice("Join request approved.");
+      //   return;
+      // }
       const response = await approveLeaderJoinRequest(requestId, memberSession.token);
       setNotice(response.message);
       await loadMemberData(memberSession);
@@ -752,11 +777,12 @@ export default function App() {
     if (!memberSession) return;
     setBusy(true);
     try {
-      if (memberSession.mode === "demo") {
-        setLeaderRequests((previous) => previous.filter((item) => item.id !== requestId));
-        setNotice("Join request rejected.");
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (memberSession.mode === "demo") {
+      //   setLeaderRequests((previous) => previous.filter((item) => item.id !== requestId));
+      //   setNotice("Join request rejected.");
+      //   return;
+      // }
       const response = await rejectLeaderJoinRequest(requestId, memberSession.token);
       setNotice(response.message);
       await loadMemberData(memberSession);
@@ -771,15 +797,16 @@ export default function App() {
     if (!adminSession) return;
     setBusy(true);
     try {
-      if (adminSession.mode === "demo") {
-        setEvents((prev) => prev.filter((item) => item.id !== eventId));
-        if (selectedEventId === eventId) {
-          const next = events.find((item) => item.id !== eventId);
-          setSelectedEventId(next?.id ?? null);
-        }
-        setNotice("Demo event deleted.");
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (adminSession.mode === "demo") {
+      //   setEvents((prev) => prev.filter((item) => item.id !== eventId));
+      //   if (selectedEventId === eventId) {
+      //     const next = events.find((item) => item.id !== eventId);
+      //     setSelectedEventId(next?.id ?? null);
+      //   }
+      //   setNotice("Demo event deleted.");
+      //   return;
+      // }
       await deleteEvent(eventId, adminSession.apiKey);
       const nextEvents = events.filter((item) => item.id !== eventId);
       setEvents(nextEvents);
@@ -799,10 +826,11 @@ export default function App() {
     if (!memberSession) return;
     setBusy(true);
     try {
-      if (memberSession.mode === "demo") {
-        setNotice("Demo profile saved.");
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (memberSession.mode === "demo") {
+      //   setNotice("Demo profile saved.");
+      //   return;
+      // }
       await updateMyProfile(
         {
           headline: memberProfile.headline || "",
@@ -827,10 +855,11 @@ export default function App() {
     if (!adminSession) return;
     setBusy(true);
     try {
-      if (adminSession.mode === "demo") {
-        setNotice("Demo admin profile saved.");
-        return;
-      }
+      // DEMO/DEVELOPMENT - Commented out for production
+      // if (adminSession.mode === "demo") {
+      //   setNotice("Demo admin profile saved.");
+      //   return;
+      // }
       await updateAdminProfile(
         {
           full_name: adminProfile.full_name || "",
