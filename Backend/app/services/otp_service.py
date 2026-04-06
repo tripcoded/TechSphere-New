@@ -56,7 +56,7 @@ class OTPService:
         return namespaced_key("otp", "cooldown", self._normalize_email(email))
 
     def _use_memory_store(self) -> bool:
-        return settings.otp_use_memory_store
+        return settings.otp_use_memory_store or not settings.redis_url
 
     def can_send(self, email: str, ip_address: str) -> tuple[bool, str]:
         email_key = self._normalize_email(email)

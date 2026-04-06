@@ -11,7 +11,7 @@ load_dotenv(dotenv_path=ENV_FILE)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./techsphere.db")
 APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
-IS_SUPABASE_POOLER = "pooler.supabase.com" in DATABASE_URL
+IS_SUPABASE_DB = "supabase.co" in DATABASE_URL or "pooler.supabase.com" in DATABASE_URL
 
 
 def _get_bool(name: str, default: bool) -> bool:
@@ -62,8 +62,8 @@ class Settings:
     password_hash_iterations: int = _get_int("PASSWORD_HASH_ITERATIONS", 120_000)
 
     database_url: str = DATABASE_URL
-    database_use_null_pool: bool = _get_bool("DATABASE_USE_NULL_POOL", IS_SUPABASE_POOLER)
-    database_auto_schema_sync: bool = _get_bool("DATABASE_AUTO_SCHEMA_SYNC", not IS_SUPABASE_POOLER)
+    database_use_null_pool: bool = _get_bool("DATABASE_USE_NULL_POOL", IS_SUPABASE_DB)
+    database_auto_schema_sync: bool = _get_bool("DATABASE_AUTO_SCHEMA_SYNC", not IS_SUPABASE_DB)
     redis_url: str = os.getenv("REDIS_URL", "")
     redis_prefix: str = os.getenv("REDIS_PREFIX", "techsphere")
 
